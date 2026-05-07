@@ -33,7 +33,7 @@ const Home = () => {
       icon: Skull,
       color: "#ef4444",
       category: "action",
-      available: false,
+      available: true,
     },
     {
       id: "flappy",

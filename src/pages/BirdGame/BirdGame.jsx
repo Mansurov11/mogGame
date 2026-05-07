@@ -1,156 +1,147 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft, RotateCcw, Check, Users } from 'lucide-react';
+import { ArrowLeft, RotateCcw, Check, Sparkles, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import doom from "../../../public/doom.png"
+import doom from "../../../public/doom.png";
+
 const W = 1020;
 const H = 700;
-const BIRD_X = 90;
-const BIRD_SIZE = 50;
-const PIPE_W = 60;
-const PIPE_GAP = 165;
-const PIPE_SPEED = 3.5;
-const PIPE_SPAWN_RATE = 1500;
+const BIRD_X = 150;
+const BIRD_SIZE = 80;
+const BUBBLE_SIZE = 90;
+const SPAWN_RATE = 1500;
 
-// Character Definitions with Unique Physics
-const CHARACTERS = [
-  { 
-    id: 'goldie', 
-    name: 'Goldie', 
-    color: 'from-[#ffe566] to-[#f5a623]', 
-    gravity: 0.45, 
-    jump: -8, 
-    emoji: '🐦',
-    description: 'Balanced & Classic' 
-  },
-  { 
-    id: 'bluey', 
-    name: 'Bluey', 
-    color: 'from-[#70e1ff] to-[#3b82f6]', 
-    gravity: 0.35, 
-    jump: -7, 
-    emoji: '💧',
-    description: 'Light & Floatier' 
-  },
-  { 
-    id: 'doom', 
-    name: 'Doom', 
-    color: 'from-[#1a1a1a] to-[#333333]', 
-    gravity: 0.65, // Heavy physics
-    jump: -10.5,  // Strong jump
-    emoji: '💀',
-    description: 'Heavy & Brutal' 
-  }
+const LESSONS = [
+  { q: "Which is a VERB?", correct: "RUN", decoys: ["APPLE", "BLUE", "HAPPY"] },
+  { q: "Plural of 'BOX'?", correct: "BOXES", decoys: ["BOXS", "BOXIES", "BOX"] },
+  { q: "Past of 'SEE'?", correct: "SAW", decoys: ["SEEN", "SEED", "SAWED"] },
+  { q: "Opposite of 'DIFFICULT'?", correct: "EASY", decoys: ["HARD", "FAST", "SLOW"] },
+  { q: "Which is an ADJECTIVE?", correct: "COLD", decoys: ["JUMP", "STREET", "SING"] }
 ];
 
-export default function BirdGame() {
+export default function EnglishRunner() {
   const navigate = useNavigate();
   
-  // Game States
-  const [selectedChar, setSelectedChar] = useState(CHARACTERS[0]);
-  const [gameStatus, setGameStatus] = useState('selection'); // selection, idle, playing, dead
+  const [gameStatus, setGameStatus] = useState('selection'); 
   const [birdY, setBirdY] = useState(H / 2);
   const [birdVel, setBirdVel] = useState(0);
-  const [birdRot, setBirdRot] = useState(0);
-  const [pipes, setPipes] = useState([]);
+  const [bubbles, setBubbles] = useState([]);
   const [score, setScore] = useState(0);
   const [best, setBest] = useState(0);
+  const [activeLesson, setActiveLesson] = useState(LESSONS[0]);
 
   const requestRef = useRef();
-  const lastPipeSpawn = useRef(0);
+  const lastSpawn = useRef(0);
+  // Use a ref for status to prevent stale closures in the event listener
+  const statusRef = useRef(gameStatus);
 
-  // 1. LOAD HIGH SCORE FROM LOCAL STORAGE ON MOUNT
   useEffect(() => {
-    const savedBest = localStorage.getItem('birdGame_highScore');
-    if (savedBest) {
-      setBest(parseInt(savedBest, 10));
+    statusRef.current = gameStatus;
+  }, [gameStatus]);
+
+  useEffect(() => {
+    const saved = localStorage.getItem('english_mog_best');
+    if (saved) setBest(parseInt(saved, 10));
+  }, []);
+
+  // --- CONTROL LOGIC ---
+  const jump = useCallback(() => {
+    if (statusRef.current === 'playing') {
+      setBirdVel(-10);
+    } else if (statusRef.current === 'idle') {
+      setGameStatus('playing');
+      setBirdVel(-10);
     }
   }, []);
 
-  // Flap Logic
-  const flap = useCallback(() => {
-    if (gameStatus === 'dead' || gameStatus === 'selection') return;
-    if (gameStatus === 'idle') setGameStatus('playing');
-    setBirdVel(selectedChar.jump);
-  }, [gameStatus, selectedChar]);
-
-  // Keyboard Listeners
+  // Listen for Spacebar
   useEffect(() => {
-    const handleKey = (e) => (e.code === 'Space' || e.code === 'ArrowUp') && flap();
-    window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
-  }, [flap]);
+    const handleKeyDown = (e) => {
+      if (e.code === 'Space' || e.code === 'ArrowUp') {
+        e.preventDefault(); // Stop page from scrolling
+        jump();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [jump]);
 
-  const restart = () => {
+  const resetGame = () => {
     setBirdY(H / 2);
     setBirdVel(0);
-    setBirdRot(0);
-    setPipes([]);
+    setBubbles([]);
     setScore(0);
+    setActiveLesson(LESSONS[Math.floor(Math.random() * LESSONS.length)]);
     setGameStatus('selection');
   };
 
-  // Main Game Loop
+  const handleBack = (e) => {
+    if (e) e.stopPropagation();
+    navigate('/');
+  };
+
   const update = useCallback((time) => {
     if (gameStatus === 'playing') {
-      // Move Bird
-      setBirdY((y) => {
-        const nextY = y + birdVel;
-        if (nextY > H - 65 || nextY < 0) {
+      setBirdY(y => {
+        const next = y + birdVel;
+        if (next > H - 80 || next < 0) {
           setGameStatus('dead');
           return y;
         }
-        return nextY;
+        return next;
       });
+      setBirdVel(v => v + 0.5);
 
-      // Apply Gravity and Rotation
-      setBirdVel((v) => v + selectedChar.gravity);
-      setBirdRot(Math.min(90, Math.max(-25, birdVel * 5)));
+      if (time - lastSpawn.current > SPAWN_RATE) {
+        const isCorrect = Math.random() > 0.6; 
+        const text = isCorrect 
+          ? activeLesson.correct 
+          : activeLesson.decoys[Math.floor(Math.random() * activeLesson.decoys.length)];
 
-      // Spawn Pipes
-      if (time - lastPipeSpawn.current > PIPE_SPAWN_RATE) {
-        const topPipeHeight = Math.random() * (H - PIPE_GAP - 150) + 50;
-        setPipes((prev) => [...prev, { x: W, top: topPipeHeight, passed: false }]);
-        lastPipeSpawn.current = time;
+        setBubbles(prev => [...prev, {
+          id: Math.random(),
+          x: W,
+          y: Math.random() * (H - 250) + 150,
+          text,
+          isCorrect
+        }]);
+        lastSpawn.current = time;
       }
 
-      // Move Pipes
-      setPipes((prev) =>
-        prev.map((p) => ({ ...p, x: p.x - PIPE_SPEED })).filter((p) => p.x > -PIPE_W)
-      );
+      setBubbles(prev => {
+        const nextBubbles = prev.map(b => ({ ...b, x: b.x - 6 })).filter(b => b.x > -150);
+        let collisionDetected = false;
+        
+        const remainingBubbles = nextBubbles.filter(b => {
+          const dx = (BIRD_X + BIRD_SIZE/2) - (b.x + BUBBLE_SIZE/2);
+          const dy = (birdY + BIRD_SIZE/2) - (b.y + BUBBLE_SIZE/2);
+          const distance = Math.sqrt(dx*dx + dy*dy);
 
-      // Collision and Scoring
-      pipes.forEach((p) => {
-        // Hitbox detection
-        if (
-          BIRD_X + 10 < p.x + PIPE_W &&
-          BIRD_X + BIRD_SIZE - 10 > p.x &&
-          (birdY + 10 < p.top || birdY + BIRD_SIZE - 10 > p.top + PIPE_GAP)
-        ) {
-          setGameStatus('dead');
-        }
-
-        // 2. SAVE HIGH SCORE TO LOCAL STORAGE ON PASS
-        if (!p.passed && p.x < BIRD_X) {
-          p.passed = true;
-          setScore((s) => {
-            const newScore = s + 1;
-            setBest((currentBest) => {
-              if (newScore > currentBest) {
-                localStorage.setItem('birdGame_highScore', newScore.toString());
+          if (distance < (BIRD_SIZE/2 + BUBBLE_SIZE/2) - 15) {
+            if (b.isCorrect) {
+              setScore(s => {
+                const newScore = s + 10;
+                if (newScore > best) {
+                  setBest(newScore);
+                  localStorage.setItem('english_mog_best', newScore.toString());
+                }
                 return newScore;
-              }
-              return currentBest;
-            });
-            return newScore;
-          });
-        }
+              });
+              setActiveLesson(LESSONS[Math.floor(Math.random() * LESSONS.length)]);
+              return false;
+            } else {
+              collisionDetected = true;
+              return true;
+            }
+          }
+          return true;
+        });
+
+        if (collisionDetected) setGameStatus('dead');
+        return remainingBubbles;
       });
-    } else if (gameStatus === 'idle') {
-      // Floating animation for menu
-      setBirdY(H / 2 + Math.sin(time / 300) * 12);
     }
     requestRef.current = requestAnimationFrame(update);
-  }, [gameStatus, birdVel, birdY, pipes, selectedChar]);
+  }, [gameStatus, birdVel, birdY, activeLesson, best]);
 
   useEffect(() => {
     requestRef.current = requestAnimationFrame(update);
@@ -158,138 +149,111 @@ export default function BirdGame() {
   }, [update]);
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 select-none bg-[#f0f4f8]">
-      {/* UI Top Bar */}
-      <div className="w-full max-w-[955px] flex justify-between items-center mb-4">
-        <button onClick={() => navigate('/')} className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-colors text-sm font-bold">
-          <ArrowLeft size={18} /> Back
+    <div className="min-h-screen bg-[#0f172a] flex flex-col items-center p-8 text-white select-none">
+      
+      {/* Header */}
+      <div className="w-full max-w-[1020px] flex justify-between items-center mb-6 z-50">
+        <button 
+          onClick={handleBack}
+          className="flex items-center gap-2 bg-white/10 px-6 py-3 rounded-2xl hover:bg-red-500 transition-all font-black uppercase text-xs border border-white/10"
+        >
+          <ArrowLeft size={18} /> Exit Game
         </button>
-        <div className="flex gap-2">
-          <div className="bg-white px-4 py-1.5 rounded-xl border border-gray-200 shadow-sm text-center">
-            <p className="text-[10px] font-black text-gray-400">SCORE</p>
-            <p className="text-lg text-gray-900 font-black leading-none">{score}</p>
+        
+        <div className="flex gap-4">
+          <div className="bg-slate-800 px-6 py-2 rounded-2xl border border-white/5 text-center">
+             <p className="text-[10px] font-black text-blue-400 uppercase leading-none mb-1 tracking-widest">SCORE</p>
+             <p className="text-2xl font-black">{score}</p>
           </div>
-          <div className="bg-white px-4 py-1.5 rounded-xl border border-gray-200 shadow-sm text-center">
-            <p className="text-[10px] font-black text-amber-500">BEST</p>
-            <p className="text-lg text-amber-500 font-black leading-none">{best}</p>
+          <div className="bg-slate-800 px-6 py-2 rounded-2xl border border-white/5 text-center">
+             <p className="text-[10px] font-black text-amber-400 uppercase leading-none mb-1 tracking-widest">BEST</p>
+             <p className="text-2xl font-black">{best}</p>
           </div>
         </div>
       </div>
 
+      {/* Main Game Container - Works with Mouse Click */}
       <div 
-        onClick={flap}
-        className="relative overflow-hidden rounded-[2.5rem] shadow-2xl border-[6px] border-white bg-gradient-to-b from-[#5ba3e0] to-[#a8d8f0] cursor-pointer"
+        onMouseDown={jump}
+        className="relative rounded-[3rem] border-[12px] border-white/5 bg-[#161e2e] shadow-2xl overflow-hidden cursor-pointer" 
         style={{ width: W, height: H }}
       >
-        {/* Background Clouds */}
-        <div className="absolute inset-0 opacity-20 pointer-events-none">
-          <div className="absolute top-20 left-10 w-20 h-8 bg-white rounded-full blur-md" />
-          <div className="absolute top-40 right-10 w-32 h-12 bg-white rounded-full blur-md" />
-        </div>
+        <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
 
-        {/* Pipes */}
-        {pipes.map((p, i) => (
-          <React.Fragment key={i}>
-            <div className="absolute bg-[#3db843] border-x-4 border-black/10" style={{ left: p.x, top: 0, width: PIPE_W, height: p.top }}>
-              <div className="absolute bottom-0 -left-1.5 w-[72px] h-8 bg-[#3db843] border-4 border-black/10 rounded-md shadow-lg" />
+        {/* Lesson Question */}
+        {gameStatus === 'playing' && (
+          <div className="absolute top-12 left-0 w-full flex justify-center z-50 pointer-events-none">
+            <div className="bg-white px-12 py-6 rounded-[2rem] shadow-2xl border-b-[6px] border-gray-300">
+              <p className="text-blue-500 text-[10px] font-black uppercase mb-1 text-center tracking-widest">Task:</p>
+              <h2 className="text-4xl font-black text-gray-900 tracking-tighter uppercase">{activeLesson.q}</h2>
             </div>
-            <div className="absolute bg-[#3db843] border-x-4 border-black/10" style={{ left: p.x, top: p.top + PIPE_GAP, width: PIPE_W, height: H - (p.top + PIPE_GAP) }}>
-              <div className="absolute top-0 -left-1.5 w-[72px] h-8 bg-[#3db843] border-4 border-black/10 rounded-md shadow-lg" />
-            </div>
-          </React.Fragment>
+          </div>
+        )}
+
+        {/* Bubbles */}
+        {bubbles.map(b => (
+          <div 
+            key={b.id}
+            className={`absolute flex items-center justify-center rounded-full border-4 shadow-2xl ${
+              b.isCorrect ? 'bg-blue-600 border-blue-400' : 'bg-slate-800 border-slate-600'
+            }`}
+            style={{ left: b.x, top: b.y, width: BUBBLE_SIZE, height: BUBBLE_SIZE }}
+          >
+            <span className="font-black text-xs px-2 text-center uppercase tracking-tighter">{b.text}</span>
+          </div>
         ))}
 
-        {/* Character Visuals */}
+        {/* Doom */}
         {gameStatus !== 'selection' && (
           <div 
-            className="absolute z-10"
+            className="absolute z-40 transition-transform" 
             style={{ 
               left: BIRD_X, 
               top: birdY, 
               width: BIRD_SIZE, 
               height: BIRD_SIZE,
-              transform: `rotate(${birdRot}deg)`
+              transform: `rotate(${birdVel * 2}deg)` 
             }}
           >
-            {selectedChar.id === 'doom' ? (
-              /* DOOM HELMET RENDER */
-              <div className="relative w-full h-full scale-110">
-                <img src={doom} alt="" />
-              </div>
-            ) : (
-              /* CLASSIC BIRD RENDER */
-              <div className={`relative w-full h-full bg-gradient-to-br ${selectedChar.color} rounded-full border-[3px] border-gray-800 shadow-lg flex items-center justify-center`}>
-                <div className="absolute top-1 right-2 w-4 h-4 bg-white rounded-full border-2 border-gray-800 overflow-hidden">
-                    <div className="absolute top-1 right-0.5 w-2 h-2 bg-gray-900 rounded-full" />
-                </div>
-                <div className="absolute -right-2 top-[40%] w-4 h-3 bg-[#ff6b35] rounded-full border-2 border-gray-800" />
-              </div>
-            )}
+             <img src={doom} className="w-full h-full drop-shadow-[0_0_20px_rgba(59,130,246,0.5)] object-contain" alt="doom" />
           </div>
         )}
 
-        {/* Floor */}
-        <div className="absolute bottom-0 w-full h-12 bg-[#c8a96e] border-t-[6px] border-[#5c8a3c] z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]" />
-
-        {/* SCREEN OVERLAYS */}
-        
-        {/* 1. Character Selection Screen */}
+        {/* Selection Overlay */}
         {gameStatus === 'selection' && (
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-md flex items-center justify-center z-40 p-6">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl p-6 w-full max-w-[320px] border border-gray-100 animate-in zoom-in-90 duration-200">
-              <h2 className="text-xl font-black text-gray-900 mb-6 text-center tracking-tight">WHO'S FLAPPING?</h2>
-              <div className="flex flex-col gap-3 mb-6">
-                {CHARACTERS.map((char) => (
-                  <button
-                    key={char.id}
-                    onClick={() => setSelectedChar(char)}
-                    className={`flex items-center gap-4 p-3 rounded-2xl border-2 transition-all ${
-                      selectedChar.id === char.id ? 'border-amber-400 bg-amber-50 shadow-sm' : 'border-gray-50 bg-gray-50'
-                    }`}
-                  >
-                    <span className="text-2xl">{char.id === 'doom' ? '💀' : char.emoji}</span>
-                    <div className="text-left flex-1">
-                      <p className="font-bold text-sm leading-tight">{char.name}</p>
-                      <p className="text-[10px] text-gray-400 font-black uppercase tracking-tighter">{char.description}</p>
-                    </div>
-                    {selectedChar.id === char.id && <Check className="text-amber-500" size={18} />}
-                  </button>
-                ))}
-              </div>
+          <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-xl flex items-center justify-center z-50">
+            <div className="text-center bg-white p-12 rounded-[4rem] text-gray-900 w-full max-w-sm border-[10px] border-blue-600/20">
+              <Sparkles className="mx-auto text-blue-600 mb-4" size={64} />
+              <h1 className="text-4xl font-black tracking-tighter mb-2 italic">LEXICAL RUNNER</h1>
+              <p className="text-gray-500 font-bold mb-10 leading-tight">Use <span className="text-blue-600">SPACE</span> or <span className="text-blue-600">CLICK</span> to fly.</p>
               <button 
-                onClick={() => setGameStatus('idle')}
-                className="w-full bg-[#f5a623] hover:bg-[#e69512] text-white font-black py-4 rounded-2xl shadow-[0_4px_0_#d48a0a] active:translate-y-1 active:shadow-none transition-all"
+                onClick={(e) => { e.stopPropagation(); setGameStatus('idle'); }} 
+                className="w-full bg-blue-600 text-white font-black py-6 rounded-3xl text-2xl shadow-[0_8px_0_#1e40af] hover:translate-y-1 active:translate-y-2 transition-all uppercase"
               >
-                LET'S GO
+                Start Lesson
               </button>
             </div>
           </div>
         )}
 
-        {/* 2. Ready to Start Screen */}
-        {gameStatus === 'idle' && (
-          <div className="absolute inset-0 bg-black/5 flex items-center justify-center z-30">
-            <div className="bg-white/90 p-8 rounded-[2rem] shadow-2xl text-center border-2 border-white">
-              <p className="text-[10px] font-black text-gray-400 uppercase mb-2">Ready, {selectedChar.name}?</p>
-              <button className="bg-[#f5a623] text-white font-black px-10 py-4 rounded-2xl shadow-[0_6px_0_#d48a0a] animate-bounce">
-                TAP TO START
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* 3. Game Over Screen */}
+        {/* Dead Overlay */}
         {gameStatus === 'dead' && (
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-30">
-            <div className="bg-white rounded-[2.5rem] p-8 text-center w-[280px] shadow-2xl border border-white">
-              <h2 className="text-2xl font-black mb-6 text-gray-900 tracking-tighter uppercase">Crashed!</h2>
-              <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 mb-6">
-                <p className="text-[10px] font-black text-gray-400 uppercase">Your Score</p>
-                <p className="text-4xl font-black text-gray-900">{score}</p>
-              </div>
-              <button onClick={restart} className="w-full flex items-center justify-center gap-2 bg-gray-900 text-white font-black py-4 rounded-2xl hover:bg-black transition-colors">
-                <RotateCcw size={20} /> TRY AGAIN
-              </button>
+          <div className="absolute inset-0 bg-red-600/90 backdrop-blur-md flex flex-col items-center justify-center z-50">
+            <AlertCircle size={100} className="mb-6 animate-bounce text-white" />
+            <h2 className="text-8xl font-black mb-4 uppercase tracking-tighter italic">FAILED</h2>
+            <div className="flex gap-4">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); resetGame(); }} 
+                  className="bg-white text-red-600 font-black px-12 py-6 rounded-[2rem] text-2xl shadow-[0_8px_0_#cbd5e1] hover:translate-y-1 active:translate-y-2 transition-all uppercase"
+                >
+                  Try Again
+                </button>
+                <button 
+                  onClick={handleBack} 
+                  className="bg-black/20 text-white border-2 border-white/20 font-black px-10 py-6 rounded-[2rem] text-2xl hover:bg-black/40 transition-all uppercase"
+                >
+                  Quit
+                </button>
             </div>
           </div>
         )}
