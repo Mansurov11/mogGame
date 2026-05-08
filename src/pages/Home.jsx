@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import  { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Grid3x3, Type, Skull, Bird, Search } from "lucide-react";
 
@@ -33,7 +33,7 @@ const Home = () => {
       icon: Skull,
       color: "#ef4444",
       category: "action",
-      available: false,
+      available: true,
     },
     {
       id: "flappy",
@@ -42,7 +42,7 @@ const Home = () => {
       icon: Bird,
       color: "#f59e0b",
       category: "action",
-      available: false,
+      available: true,
     },
   ];
 

@@ -1,14 +1,15 @@
-import React from "react";
-import { Outlet } from "react-router-dom";
-
+import { Outlet,  } from "react-router-dom";
+// Ensure this path matches your project structure
 
 const Layout = () => {
 
   return (
-   <>
-   <Outlet />
-   
-   </>
+
+
+      <main className="flex-grow flex flex-col">
+        <Outlet />
+      </main>
+  
   );
 };
 
