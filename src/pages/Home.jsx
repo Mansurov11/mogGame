@@ -1,6 +1,7 @@
-import  { useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid3x3, Type, Skull, Bird, Search } from "lucide-react";
+import { Grid3x3, Type, Skull, Bird, Search, Snail } from "lucide-react";
+
 
 const Home = () => {
   const navigate = useNavigate();
@@ -38,9 +39,18 @@ const Home = () => {
     {
       id: "flappy",
       title: "Flappy Bird",
-      description: "Navigate through pipes",
+      description: "Navigate and answer correctly",
       icon: Bird,
       color: "#f59e0b",
+      category: "action",
+      available: true,
+    },
+    {
+      id: "snake",
+      title: "Word Snake",
+      description: "Slither and collect letters",
+      icon: Snail,
+      color: "#10b9b1",
       category: "action",
       available: true,
     },
@@ -65,7 +75,11 @@ const Home = () => {
     <div className="min-h-screen bg-[#f8f9fa]">
       <div className="max-w-7xl mx-auto px-4 py-8">
         <header className="mb-8 flex flex-col items-center text-center">
-          <img src="/logo.png" alt="Mini Games Logo" className="w-82 h-auto object-contain mb-3 drop-shadow-lg" />
+          <img
+            src="/logo.png"
+            alt="Mini Games Logo"
+            className="w-82 h-auto object-contain mb-3 drop-shadow-lg"
+          />
           <p className="text-gray-600">Play free games online</p>
         </header>
 

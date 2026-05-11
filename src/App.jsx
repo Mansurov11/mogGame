@@ -16,7 +16,7 @@ const router = createBrowserRouter([
       { path: "wordle", element: <Wordle /> },
       { path: "guess", element: <GuessTheWord /> },
       { path: "doom", element: <Doom /> },
-      { path: "flappy", element: <BirdGame /> }, 
+      { path: "flappy", element: <BirdGame /> },
       { path: "snake", element: <WordSnake /> }, 
     ],
   },
