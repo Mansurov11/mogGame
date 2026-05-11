@@ -5,6 +5,7 @@ import Wordle from "./pages/Wordle/Wordle";
 import GuessTheWord from "./pages/GuessingGame/GuessingGame";
 import Doom from "./pages/Doom/Doom";
 import BirdGame from "./pages/BirdGame/BirdGame"; // Ensure this matches your file name
+import WordSnake from "./pages/WordSnake/WordSnake";
 
 const router = createBrowserRouter([
   {
@@ -16,6 +17,7 @@ const router = createBrowserRouter([
       { path: "guess", element: <GuessTheWord /> },
       { path: "doom", element: <Doom /> },
       { path: "flappy", element: <BirdGame /> }, 
+      { path: "snake", element: <WordSnake /> }, 
     ],
   },
 ]);
