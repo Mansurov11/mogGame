@@ -9,6 +9,7 @@ import WordSnake from "./pages/WordSnake/WordSnake";
 import GeoDash from "./pages/GeoEnglish/GeoEnglish"
 import Login from "./pages/Login/Login";
 import Register from "./pages/Registration/Registration";
+import GlyphStriker from "./pages/GylphStrike/GylphStrike";
 
 const router = createBrowserRouter([
   {
@@ -30,6 +31,7 @@ const router = createBrowserRouter([
       { path: "flappy", element: <BirdGame /> },
       { path: "snake", element: <WordSnake /> },
       { path: "dash", element: <GeoDash /> },
+      { path: "glyph", element: <GlyphStriker /> },
     ],
   },
 ]);

@@ -1,8 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid3x3, Type, Skull, Zap, Bird, Search, Snail, Square, Sun, Moon, MoonIcon } from "lucide-react";
+import {
+  Grid3x3,
+  Type,
+  Skull,
+  Zap,
+  Bird,
+  Search,
+  Snail,
+  Square,
+  Sun,
+  Moon,
+  MoonIcon,
+  ALargeSmall,
+} from "lucide-react";
 
-<MoonIcon />
 
 const Home = () => {
   const navigate = useNavigate();
@@ -22,6 +34,7 @@ const Home = () => {
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
   const isDark = theme === "dark";
+
 
   const games = [
     {
@@ -69,6 +82,15 @@ const Home = () => {
       category: "action",
       available: true,
     },
+    {
+      id: "glyph",
+      title: "Glyph Strike",
+      description: "type and collect letters",
+      icon: ALargeSmall,
+      color: "#ef4444",
+      category: "word",
+      available: true,
+    },
   ];
 
   const categories = [
@@ -87,7 +109,12 @@ const Home = () => {
   });
 
   return (
-    <div style={{ minHeight: "100vh", backgroundColor: isDark ? "#0f1117" : "#f8f9fa" }}>
+    <div
+      style={{
+        minHeight: "100vh",
+        backgroundColor: isDark ? "#0f1117" : "#f8f9fa",
+      }}
+    >
       <div className="max-w-7xl mx-auto px-4 py-8">
         <header className="mb-8 flex flex-col items-center text-center relative">
           {/* Theme toggle */}
@@ -101,7 +128,11 @@ const Home = () => {
             }}
             aria-label="Toggle theme"
           >
-            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            {isDark ? (
+              <Sun className="w-5 h-5" />
+            ) : (
+              <Moon className="w-5 h-5" />
+            )}
           </button>
 
           <img
@@ -109,7 +140,9 @@ const Home = () => {
             alt="Mini Games Logo"
             className="w-82 h-auto object-contain mb-3 drop-shadow-lg"
           />
-          <p style={{ color: isDark ? "#94a3b8" : "#4b5563" }}>Play free games online</p>
+          <p style={{ color: isDark ? "#94a3b8" : "#4b5563" }}>
+            Play free games online
+          </p>
         </header>
 
         {/* Search and Filters */}
@@ -141,7 +174,11 @@ const Home = () => {
                 className="px-4 py-2.5 rounded-lg font-medium whitespace-nowrap transition-colors"
                 style={
                   selectedCategory === category.id
-                    ? { backgroundColor: "#dc2626", color: "#ffffff", border: "1px solid #dc2626" }
+                    ? {
+                        backgroundColor: "#dc2626",
+                        color: "#ffffff",
+                        border: "1px solid #dc2626",
+                      }
                     : {
                         backgroundColor: isDark ? "#1a1d27" : "#ffffff",
                         color: isDark ? "#cbd5e1" : "#374151",
@@ -176,7 +213,9 @@ const Home = () => {
               >
                 <div
                   className="aspect-square flex items-center justify-center"
-                  style={{ backgroundColor: game.color + (isDark ? "25" : "15") }}
+                  style={{
+                    backgroundColor: game.color + (isDark ? "25" : "15"),
+                  }}
                 >
                   <Icon
                     className="w-16 h-16 transition-transform group-hover:scale-110"
@@ -202,7 +241,11 @@ const Home = () => {
                 {!game.available && (
                   <div
                     className="absolute inset-0 flex items-center justify-center"
-                    style={{ backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)" }}
+                    style={{
+                      backgroundColor: isDark
+                        ? "rgba(0,0,0,0.4)"
+                        : "rgba(0,0,0,0.05)",
+                    }}
                   >
                     <span
                       className="px-3 py-1 rounded-full text-sm font-medium shadow"
@@ -223,7 +266,10 @@ const Home = () => {
         {/* Empty State */}
         {filteredGames.length === 0 && (
           <div className="text-center py-16">
-            <p className="text-lg" style={{ color: isDark ? "#94a3b8" : "#6b7280" }}>
+            <p
+              className="text-lg"
+              style={{ color: isDark ? "#94a3b8" : "#6b7280" }}
+            >
               No games found
             </p>
             <button
