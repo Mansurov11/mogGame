@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Grid3x3, Type, Skull, Bird, Search, Snail } from "lucide-react";
+import { Grid3x3, Type, Skull, Zap, Bird, Search, Snail,  Square } from "lucide-react";
 
 
 const Home = () => {
@@ -9,6 +9,24 @@ const Home = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   const games = [
+    {
+      id: "flappy",
+      title: "Lexical Runner",
+      description: "Dodge pipes and master English grammar",
+      icon: Zap,
+      color: "#3b82f6",
+      category: "action",
+      available: true,
+    },
+    {
+      id: "dash",
+      title: "Geometry Dash",
+      description: "Jump and fly through rhythm-based levels",
+      icon: Square,
+      color: "#a855f7",
+      category: "action",
+      available: true,
+    },
     {
       id: "wordle",
       title: "Wordle",
@@ -83,6 +101,7 @@ const Home = () => {
           <p className="text-gray-600">Play free games online</p>
         </header>
 
+        {/* Search and Filters */}
         <div className="mb-6 flex flex-col sm:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -112,13 +131,14 @@ const Home = () => {
           </div>
         </div>
 
+        {/* Game Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredGames.map((game) => {
             const Icon = game.icon;
             return (
               <button
                 key={game.id}
-                onClick={() => game.available && navigate(game.id)}
+                onClick={() => game.available && navigate(`/${game.id}`)}
                 disabled={!game.available}
                 className={`group relative bg-white rounded-xl overflow-hidden transition-all ${
                   game.available
@@ -137,10 +157,10 @@ const Home = () => {
                 </div>
 
                 <div className="p-3">
-                  <h3 className="font-semibold text-gray-900 mb-1 truncate">
+                  <h3 className="font-semibold text-gray-900 mb-1 truncate text-left">
                     {game.title}
                   </h3>
-                  <p className="text-sm text-gray-600 truncate">
+                  <p className="text-sm text-gray-600 truncate text-left">
                     {game.description}
                   </p>
                 </div>
@@ -157,6 +177,7 @@ const Home = () => {
           })}
         </div>
 
+        {/* Empty State */}
         {filteredGames.length === 0 && (
           <div className="text-center py-16">
             <p className="text-gray-500 text-lg">No games found</p>

@@ -6,7 +6,7 @@ function DoomGame() {
   const WORD_LIST = [
     "DOOM",
     "CREATE",
-    "REACT",
+    "CRACK  ",
     "IMPACT",
     "ENEMY",
     "FEAR",

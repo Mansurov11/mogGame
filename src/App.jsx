@@ -6,6 +6,7 @@ import GuessTheWord from "./pages/GuessingGame/GuessingGame";
 import Doom from "./pages/Doom/Doom";
 import BirdGame from "./pages/BirdGame/BirdGame"; // Ensure this matches your file name
 import WordSnake from "./pages/WordSnake/WordSnake";
+import GeoDash from "./pages/GeoEnglish/GeoEnglish"
 
 const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ const router = createBrowserRouter([
       { path: "doom", element: <Doom /> },
       { path: "flappy", element: <BirdGame /> },
       { path: "snake", element: <WordSnake /> }, 
+      { path: "dash", element: <GeoDash /> }, 
     ],
   },
 ]);
