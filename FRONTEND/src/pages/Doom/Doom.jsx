@@ -1016,17 +1016,18 @@ function DoomGame() {
         dy = l.y - s.py,
         dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 0.75) {
-        // Only collect if it's the NEXT needed letter
+        // Check if this letter matches the NEXT needed character
         const nextIdx = s.collectedWord.length;
-        if (l.id === nextIdx) {
+        const neededChar = s.targetWord[nextIdx];
+        if (l.char === neededChar) {
           l.alive = false;
           s.collectedWord += l.char;
           s.score += 150;
           s.msg = `✨ "${l.char}" COLLECTED! (${s.collectedWord}/${s.targetWord})`;
           s.msgT = 60;
         } else {
-          // Wrong order hint
-          s.msg = `⚠ Need "${s.targetWord[s.collectedWord.length]}" first!`;
+          // Wrong letter hint
+          s.msg = `⚠ Need "${neededChar}" next!`;
           s.msgT = 40;
         }
       }
