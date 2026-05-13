@@ -9,8 +9,10 @@ import {
   Zap,
   Trophy,
   Play,
+  ArrowLeft,
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 const CELL = 28;
 const COLS = 22;
@@ -209,6 +211,7 @@ export default function WordSnake() {
   const speedTimerRef = useRef(null);
   const pausedRef = useRef(false); // true while word-complete popup is shown
   const sk = SKINS[skin];
+    const navigate = useNavigate();
 
   const stopAll = useCallback(() => {
     cancelAnimationFrame(animRef.current);
@@ -221,6 +224,7 @@ export default function WordSnake() {
   }, []);
 
   const startGame = useCallback(() => {
+     
     stopAll();
     pausedRef.current = false;
     setWordComplete(null);
@@ -610,89 +614,99 @@ export default function WordSnake() {
   // ── MENU ──────────────────────────────────────────────────────
   if (screen === "menu")
     return (
-      <div
-        className={`min-h-screen bg-linear-to-br ${sk.bg} flex flex-col items-center justify-center font-sans select-none`}
-      >
-        <div className="mb-8 text-center">
-          <div className="flex items-center gap-3 justify-center mb-2">
-            <Snail size={44} className={sk.tag} />
-            <h1 className="text-5xl font-black tracking-tight text-white drop-shadow-lg">
-              Word<span className={sk.tag}>Snake</span>
-            </h1>
-          </div>
-          <p className="text-gray-400 text-lg">
-            Spell the word — beat the clock
-          </p>
-        </div>
+      <>
+        <button
+          onClick={() => navigate("/")}
+          className={`flex items-center text-xl  gap-2 bg-gray-900 px-5 py-2.5 hover: transition-all font-bold text-white  uppercase`}
+        >
+          <ArrowLeft size={15} /> Exit
+        </button>
 
         <div
-          className={`bg-gray-900 border ${sk.border} border-opacity-40 rounded-2xl p-7 w-80 shadow-2xl`}
+          className={`min-h-screen bg-linear-to-br  ${sk.bg} flex flex-col items-center justify-center font-sans select-none`}
         >
-          <h2 className="text-gray-300 text-sm font-semibold uppercase tracking-widest mb-4">
-            Choose Your Skin
-          </h2>
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            {Object.entries(SKINS).map(([key, s]) => (
-              <button
-                key={key}
-                onClick={() => setSkin(key)}
-                className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${skin === key ? `${s.border} bg-gray-800` : "border-gray-700 bg-gray-800 hover:border-gray-500"}`}
-              >
-                <div className="flex gap-1">
-                  {[0, 1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="rounded-full transition-all ease-in-out"
-                      style={{
-                        width: 14,
-                        height: 14,
-                        background: lerpColor(s.head, s.tail, i / 3),
-                      }}
-                    />
-                  ))}
-                </div>
-                <span className="text-xs text-gray-300 font-medium">
-                  {s.name}
-                </span>
-                {skin === key && (
-                  <span className={`text-xs font-bold ${s.tag}`}>
-                    ✓ Selected
-                  </span>
-                )}
-              </button>
-            ))}
+          <div className="mb-8 text-center">
+            <div className="flex items-center gap-3 justify-center mb-2">
+              <Snail size={44} className={sk.tag} />
+              <h1 className="text-5xl font-black tracking-tight text-white drop-shadow-lg">
+                Word<span className={sk.tag}>Snake</span>
+              </h1>
+            </div>
+            <p className="text-gray-400 text-lg">
+              Spell the word — beat the clock
+            </p>
           </div>
 
-          <div className="bg-gray-800 rounded-xl p-4 mb-5 border border-gray-700">
-            <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3 text-center">
-              How to play
-            </h3>
-            <ul className="text-gray-300 text-sm space-y-2">
-              <li className="flex items-center gap-2">
-                <span className={sk.tag}>🔤</span> Collect letters{" "}
-                <span className={`font-bold ${sk.tag}`}>in order</span>
-              </li>
-              <li className="flex items-center gap-2">
-                <LucideArrowBigUp size={16} className={sk.tag} /> Arrow keys or
-                WASD
-              </li>
-              <li className="flex items-center gap-2">
-                <Zap size={16} className={sk.tag} /> Speed increases every 15s
-              </li>
-              <li className="flex items-center gap-2">
-                <Skull size={16} className={sk.tag} /> Avoid walls and yourself
-              </li>
-            </ul>
-          </div>
-
-          <button
-            onClick={startGame}
-            className={`w-full ${sk.btn} text-white font-black text-xl py-4 rounded-xl shadow-lg transition-all active:scale-95 tracking-wide`}
+          <div
+            className={`bg-gray-900 border ${sk.border} border-opacity-40 rounded-2xl p-7 w-80 shadow-2xl`}
           >
-            PLAY
-          </button>
+            <h2 className="text-gray-300 text-sm font-semibold uppercase tracking-widest mb-4">
+              Choose Your Skin
+            </h2>
+            <div className="grid grid-cols-2 gap-3 mb-6">
+              {Object.entries(SKINS).map(([key, s]) => (
+                <button
+                  key={key}
+                  onClick={() => setSkin(key)}
+                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all duration-200 ${skin === key ? `${s.border} bg-gray-800` : "border-gray-700 bg-gray-800 hover:border-gray-500"}`}
+                >
+                  <div className="flex gap-1">
+                    {[0, 1, 2, 3].map((i) => (
+                      <div
+                        key={i}
+                        className="rounded-full transition-all ease-in-out"
+                        style={{
+                          width: 14,
+                          height: 14,
+                          background: lerpColor(s.head, s.tail, i / 3),
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-xs text-gray-300 font-medium">
+                    {s.name}
+                  </span>
+                  {skin === key && (
+                    <span className={`text-xs font-bold ${s.tag}`}>
+                      ✓ Selected
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+
+            <div className="bg-gray-800 rounded-xl p-4 mb-5 border border-gray-700">
+              <h3 className="text-gray-400 text-xs uppercase tracking-widest mb-3 text-center">
+                How to play
+              </h3>
+              <ul className="text-gray-300 text-sm space-y-2">
+                <li className="flex items-center gap-2">
+                  <span className={sk.tag}>🔤</span> Collect letters{" "}
+                  <span className={`font-bold ${sk.tag}`}>in order</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <LucideArrowBigUp size={16} className={sk.tag} /> Arrow keys
+                  or WASD
+                </li>
+                <li className="flex items-center gap-2">
+                  <Zap size={16} className={sk.tag} /> Speed increases every 15s
+                </li>
+                <li className="flex items-center gap-2">
+                  <Skull size={16} className={sk.tag} /> Avoid walls and
+                  yourself
+                </li>
+              </ul>
+            </div>
+
+            <button
+              onClick={startGame}
+              className={`w-full ${sk.btn} text-white font-black text-xl py-4 rounded-xl shadow-lg transition-all active:scale-95 tracking-wide`}
+            >
+              PLAY
+            </button>
+          </div>
         </div>
-      </div>
+      </>
     );
 
   // ── GAME ──────────────────────────────────────────────────────

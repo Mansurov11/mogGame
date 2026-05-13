@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Sparkles, AlertCircle, Link } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import doom from "../../../public/doom.png";
 
 const W = 1020, H = 700;
 const BIRD_X = 150, BIRD_SIZE = 80, BUBBLE_SIZE = 90;
-const GRAVITY = 0.5, JUMP_FORCE = -11;
-const BASE_SPEED = 5;
+const GRAVITY = 0.2, JUMP_FORCE = -8;
+const BASE_SPEED = 4;
 
 const LESSONS = [
   { q: "Which is a VERB?",         correct: "RUN",      decoys: ["APPLE","BLUE","HAPPY"] },
@@ -269,10 +269,9 @@ export default function EnglishRunner() {
 
         {/* Header */}
         <div className="w-full max-w-[1020px] flex justify-between items-center mb-4">
-          <button onClick={() => navigate('/')}
-            className="flex items-center gap-2 bg-white/10 px-5 py-2.5 rounded-2xl hover:bg-red-500 transition-all font-black uppercase text-xs border border-white/10">
-            <ArrowLeft size={15}/> Exit
-          </button>
+                <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: 15 }}>
+          <ArrowLeft size={18} /> Back to Games
+        </button>
 
           <div className="flex gap-3 items-center flex-wrap justify-end">
             {/* Lives */}
