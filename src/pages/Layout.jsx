@@ -1,15 +1,17 @@
-import { Outlet,  } from "react-router-dom";
-// Ensure this path matches your project structure
+import { Outlet, Navigate } from "react-router-dom";
 
 const Layout = () => {
-
-  return (
-
-
-      <main className="grow flex flex-col">
-        <Outlet />
-      </main>
+  const authToken = localStorage.getItem("authToken");
   
+  // Redirect to login if no auth token
+  if (!authToken) {
+    return <Navigate to="/login" replace />;
+  }
+  
+  return (
+    <main className="grow flex flex-col">
+      <Outlet />
+    </main>
   );
 };
 

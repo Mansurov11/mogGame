@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sun, Moon, Eye, EyeOff, Gamepad2, ArrowLeft, User, Mail, Lock, CheckCircle2 } from "lucide-react";
+import { auth, db } from "../../firebase"; 
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { ref, set } from "firebase/database";
+import { toast } from "react-toastify";
 
 const Register = () => {
   const navigate = useNavigate();
@@ -32,16 +36,49 @@ const Register = () => {
   const passwordMatch = confirm.length > 0 && password === confirm;
   const passwordMismatch = confirm.length > 0 && password !== confirm;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (passwordMismatch) return;
-    setLoading(true);
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  if (passwordMismatch) return;
+  
+  setLoading(true);
+
+  try {
+    // 2. Firebase Auth orqali yangi foydalanuvchi yaratish
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // 3. Foydalanuvchi ma'lumotlarini (username) Realtime Database-ga yozish
+    // Bu UID orqali foydalanuvchini kelajakda tanib olish uchun kerak
+    await set(ref(db, 'Users/' + user.uid), {
+      username: username,
+      email: email,
+      createdAt: new Date().toISOString(),
+      bestScores: {
+        game1: 0,
+        game2: 0
+      }
+    });
+
+    // 4. Muvaffaqiyatli holat
+    setSuccess(true);
+    toast.success("Hisob muvaffaqiyatli yaratildi!");
+    
     setTimeout(() => {
-      setLoading(false);
-      setSuccess(true);
-      setTimeout(() => navigate("/login"), 1500);
-    }, 1200);
-  };
+      navigate("/login");
+    }, 1500);
+
+  } catch (error) {
+    console.error("Registratsiya xatosi:", error.message);
+    
+    let msg = "Xatolik yuz berdi";
+    if (error.code === "auth/email-already-in-use") msg = "Bu email band!";
+    if (error.code === "auth/weak-password") msg = "Parol juda zaif (kamida 6 ta belgi)!";
+    
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div

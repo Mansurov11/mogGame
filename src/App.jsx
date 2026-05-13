@@ -10,6 +10,7 @@ import GeoDash from "./pages/GeoEnglish/GeoEnglish"
 import Login from "./pages/Login/Login";
 import Register from "./pages/Registration/Registration";
 import GlyphStriker from "./pages/GylphStrike/GylphStrike";
+import { ToastContainer } from "react-toastify";
 
 const router = createBrowserRouter([
   {
@@ -37,7 +38,10 @@ const router = createBrowserRouter([
 ]);
 
 const App = () => {
-  return <RouterProvider router={router} />;
+  return <>
+   <RouterProvider router={router} />
+    <ToastContainer />
+  </>;
 };
 
 export default App;

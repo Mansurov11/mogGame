@@ -1,6 +1,20 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Sun, Moon, Eye, EyeOff, Gamepad2, ArrowLeft, Mail, Lock } from "lucide-react";
+import {
+  Sun,
+  Moon,
+  Eye,
+  EyeOff,
+  Gamepad2,
+  ArrowLeft,
+  Mail,
+  Lock,
+} from "lucide-react";
+import { log } from "firebase/firestore/pipelines";
+import axios from "axios";
+import { toast } from "react-toastify";
+import { auth } from "../../firebase"; // firebase.js faylingiz yo'li
+import { signInWithEmailAndPassword } from "firebase/auth";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -17,7 +31,7 @@ const Login = () => {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
+  const toggleTheme = () => setTheme((t) => (t == "light" ? "dark" : "light"));
   const isDark = theme === "dark";
 
   const [email, setEmail] = useState("");
@@ -25,14 +39,38 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      navigate("/");
-    }, 1200);
-  };
+ async function handleSubmit(e) {
+  e.preventDefault();
+  setLoading(true);
+
+  try {
+    // 1. Firebase orqali kirish (Bu juda muhim qadam)
+    const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
+    const user = userCredential.user;
+
+    // 2. Haqiqiy tokenni olish
+    const token = await user.getIdToken();
+
+    // 3. LocalStorage-ga saqlash
+    localStorage.setItem("authToken", token);
+    localStorage.setItem("userId", user.uid); // UID ni ham saqlash foydali
+
+    console.log("Token saqlandi:", token);
+    toast.success("Xush kelibsiz!");
+    
+    navigate("/");
+  } catch (error) {
+    console.error("Xatolik tafsiloti:", error.code);
+    
+    let msg = "Kirishda xatolik yuz berdi";
+    if (error.code === "auth/invalid-credential") msg = "Email yoki parol noto'g'ri!";
+    if (error.code === "auth/user-not-found") msg = "Bunday foydalanuvchi mavjud emas!";
+    
+    toast.error(msg);
+  } finally {
+    setLoading(false);
+  }
+}
 
   return (
     <div
@@ -60,7 +98,7 @@ const Login = () => {
             className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-lg"
             style={{ backgroundColor: "#dc2626" }}
           >
-  <img src="/helmet.png" alt="" />
+            <img src="/helmet.png" alt="" />
           </div>
           <h1
             className="text-2xl font-bold tracking-tight"
@@ -68,7 +106,10 @@ const Login = () => {
           >
             Welcome back
           </h1>
-          <p className="text-sm" style={{ color: isDark ? "#94a3b8" : "#6b7280" }}>
+          <p
+            className="text-sm"
+            style={{ color: isDark ? "#94a3b8" : "#6b7280" }}
+          >
             Sign in to continue playing
           </p>
         </div>
@@ -143,7 +184,11 @@ const Login = () => {
                   className="absolute right-3 top-1/2 -translate-y-1/2 hover:opacity-80 transition-opacity"
                   style={{ color: isDark ? "#64748b" : "#9ca3af" }}
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? (
+                    <EyeOff className="w-4 h-4" />
+                  ) : (
+                    <Eye className="w-4 h-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -168,9 +213,24 @@ const Login = () => {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <svg className="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+                  <svg
+                    className="animate-spin w-4 h-4"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    />
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8v8z"
+                    />
                   </svg>
                   Signing in…
                 </span>
@@ -182,7 +242,10 @@ const Login = () => {
 
           {/* Switch to Register */}
           <div className="mt-6 text-center">
-            <p className="text-sm" style={{ color: isDark ? "#94a3b8" : "#6b7280" }}>
+            <p
+              className="text-sm"
+              style={{ color: isDark ? "#94a3b8" : "#6b7280" }}
+            >
               Don't have an account?{" "}
               <button
                 onClick={() => navigate("/register")}
