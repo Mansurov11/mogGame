@@ -5,16 +5,13 @@ import {
   Type,
   Skull,
   Zap,
-  Bird,
   Search,
   Snail,
-  Square,
   Sun,
   Moon,
-  MoonIcon,
   ALargeSmall,
+  UserCircle,
 } from "lucide-react";
-
 
 const Home = () => {
   const navigate = useNavigate();
@@ -34,7 +31,6 @@ const Home = () => {
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
   const isDark = theme === "dark";
-
 
   const games = [
     {
@@ -85,7 +81,7 @@ const Home = () => {
     {
       id: "glyph",
       title: "Glyph Strike",
-      description: "type and collect letters",
+      description: "Type and collect letters",
       icon: ALargeSmall,
       color: "#ef4444",
       category: "word",
@@ -109,31 +105,39 @@ const Home = () => {
   });
 
   return (
-    <div
-      style={{
-        minHeight: "100vh",
-        backgroundColor: isDark ? "#0f1117" : "#f8f9fa",
-      }}
-    >
+    <div style={{ minHeight: "100vh", backgroundColor: isDark ? "#0f1117" : "#f8f9fa" }}>
       <div className="max-w-7xl mx-auto px-4 py-8">
+
+        {/* Header */}
         <header className="mb-8 flex flex-col items-center text-center relative">
-          {/* Theme toggle */}
-          <button
-            onClick={toggleTheme}
-            className="absolute top-0 right-0 p-2 rounded-lg border transition-colors"
-            style={{
-              backgroundColor: isDark ? "#1a1d27" : "#ffffff",
-              borderColor: isDark ? "#2d3148" : "#e5e7eb",
-              color: isDark ? "#94a3b8" : "#6b7280",
-            }}
-            aria-label="Toggle theme"
-          >
-            {isDark ? (
-              <Sun className="w-5 h-5" />
-            ) : (
-              <Moon className="w-5 h-5" />
-            )}
-          </button>
+          {/* Top-right controls: theme toggle + profile */}
+          <div className="absolute top-0 right-0 flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="p-2 rounded-lg border transition-colors"
+              style={{
+                backgroundColor: isDark ? "#1a1d27" : "#ffffff",
+                borderColor: isDark ? "#2d3148" : "#e5e7eb",
+                color: isDark ? "#94a3b8" : "#6b7280",
+              }}
+              aria-label="Toggle theme"
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+
+            <button
+              onClick={() => navigate("/profile")}
+              className="p-2 rounded-lg border transition-colors hover:opacity-80"
+              style={{
+                backgroundColor: isDark ? "#1a1d27" : "#ffffff",
+                borderColor: isDark ? "#2d3148" : "#e5e7eb",
+                color: isDark ? "#94a3b8" : "#6b7280",
+              }}
+              aria-label="Go to profile"
+            >
+              <UserCircle className="w-5 h-5" />
+            </button>
+          </div>
 
           <img
             src="/logo.png"
@@ -174,11 +178,7 @@ const Home = () => {
                 className="px-4 py-2.5 rounded-lg font-medium whitespace-nowrap transition-colors"
                 style={
                   selectedCategory === category.id
-                    ? {
-                        backgroundColor: "#dc2626",
-                        color: "#ffffff",
-                        border: "1px solid #dc2626",
-                      }
+                    ? { backgroundColor: "#dc2626", color: "#ffffff", border: "1px solid #dc2626" }
                     : {
                         backgroundColor: isDark ? "#1a1d27" : "#ffffff",
                         color: isDark ? "#cbd5e1" : "#374151",
@@ -201,7 +201,7 @@ const Home = () => {
                 key={game.id}
                 onClick={() => game.available && navigate(`/${game.id}`)}
                 disabled={!game.available}
-                className={`group relative bg-white rounded-xl overflow-hidden transition-all ${
+                className={`group relative rounded-xl overflow-hidden transition-all ${
                   game.available
                     ? "hover:shadow-lg hover:-translate-y-1 cursor-pointer"
                     : "opacity-50 cursor-not-allowed"
@@ -213,9 +213,7 @@ const Home = () => {
               >
                 <div
                   className="aspect-square flex items-center justify-center"
-                  style={{
-                    backgroundColor: game.color + (isDark ? "25" : "15"),
-                  }}
+                  style={{ backgroundColor: game.color + (isDark ? "25" : "15") }}
                 >
                   <Icon
                     className="w-16 h-16 transition-transform group-hover:scale-110"
@@ -241,11 +239,7 @@ const Home = () => {
                 {!game.available && (
                   <div
                     className="absolute inset-0 flex items-center justify-center"
-                    style={{
-                      backgroundColor: isDark
-                        ? "rgba(0,0,0,0.4)"
-                        : "rgba(0,0,0,0.05)",
-                    }}
+                    style={{ backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)" }}
                   >
                     <span
                       className="px-3 py-1 rounded-full text-sm font-medium shadow"
@@ -266,18 +260,12 @@ const Home = () => {
         {/* Empty State */}
         {filteredGames.length === 0 && (
           <div className="text-center py-16">
-            <p
-              className="text-lg"
-              style={{ color: isDark ? "#94a3b8" : "#6b7280" }}
-            >
+            <p className="text-lg" style={{ color: isDark ? "#94a3b8" : "#6b7280" }}>
               No games found
             </p>
             <button
-              onClick={() => {
-                setSearchQuery("");
-                setSelectedCategory("all");
-              }}
-              className="mt-4 text-blue-600 hover:underline"
+              onClick={() => { setSearchQuery(""); setSelectedCategory("all"); }}
+              className="mt-4 text-red-600 hover:underline"
             >
               Clear filters
             </button>

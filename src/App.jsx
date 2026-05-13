@@ -4,13 +4,14 @@ import Home from "./pages/Home";
 import Wordle from "./pages/Wordle/Wordle";
 import GuessTheWord from "./pages/GuessingGame/GuessingGame";
 import Doom from "./pages/Doom/Doom";
-import BirdGame from "./pages/BirdGame/BirdGame"; // Ensure this matches your file name
+import BirdGame from "./pages/BirdGame/BirdGame";
 import WordSnake from "./pages/WordSnake/WordSnake";
-import GeoDash from "./pages/GeoEnglish/GeoEnglish"
+import GeoDash from "./pages/GeoEnglish/GeoEnglish";
 import Login from "./pages/Login/Login";
 import Register from "./pages/Registration/Registration";
 import GlyphStriker from "./pages/GylphStrike/GylphStrike";
 import { ToastContainer } from "react-toastify";
+import Profile from "./pages/Profile/Profile";
 
 const router = createBrowserRouter([
   {
@@ -33,6 +34,7 @@ const router = createBrowserRouter([
       { path: "snake", element: <WordSnake /> },
       { path: "dash", element: <GeoDash /> },
       { path: "glyph", element: <GlyphStriker /> },
+      { path: "profile", element: <Profile /> },
     ],
   },
 ]);

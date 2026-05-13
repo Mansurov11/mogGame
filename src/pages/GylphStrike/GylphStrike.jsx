@@ -1,5 +1,5 @@
 import  { useState, useEffect, useCallback } from "react";
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Link } from 'lucide-react';
 
 // ── EXPANDED LEXICON ────────────────────────────────────────────────────────
 const DATABASE = {
@@ -104,12 +104,8 @@ export default function GlyphStriker() {
     }}>
       
       <div style={s.navArea}>
-        <button 
-          onClick={() => navigate('/')}
-          style={s.exitBtn}
-          className="exit-btn-hover"
-        >
-          <ArrowLeft size={15}/> Exitt
+             <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: 15 }}>
+          <ArrowLeft size={18} /> Back to Games
         </button>
       </div>
 
