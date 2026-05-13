@@ -39,21 +39,22 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
- async function handleSubmit(e) {
+async function handleSubmit(e) {
   e.preventDefault();
   setLoading(true);
 
   try {
-    // 1. Firebase orqali kirish (Bu juda muhim qadam)
+    // 1. Firebase orqali kirish
     const userCredential = await signInWithEmailAndPassword(auth, email.trim(), password);
     const user = userCredential.user;
 
-    // 2. Haqiqiy tokenni olish
+    // 2. Tokenni olish
     const token = await user.getIdToken();
 
     // 3. LocalStorage-ga saqlash
     localStorage.setItem("authToken", token);
-    localStorage.setItem("userId", user.uid); // UID ni ham saqlash foydali
+    localStorage.setItem("userId", user.uid);
+    localStorage.setItem("userEmail", user.email); // Email ni ham saqlash
 
     console.log("Token saqlandi:", token);
     toast.success("Xush kelibsiz!");
@@ -65,13 +66,13 @@ const Login = () => {
     let msg = "Kirishda xatolik yuz berdi";
     if (error.code === "auth/invalid-credential") msg = "Email yoki parol noto'g'ri!";
     if (error.code === "auth/user-not-found") msg = "Bunday foydalanuvchi mavjud emas!";
+    if (error.code === "auth/wrong-password") msg = "Parol noto'g'ri!";
     
     toast.error(msg);
   } finally {
     setLoading(false);
   }
 }
-
   return (
     <div
       className="min-h-screen flex items-center justify-center px-4 relative"

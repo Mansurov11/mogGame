@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ArrowLeft, Sparkles, AlertCircle, Link } from 'lucide-react';
+import { ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import doom from "../../../public/doom.png";
+
+// FIREBASE INTEGRATSIYASI
+import { auth, db } from "../../firebase"; // O'zingizning firebase faylingiz yo'li
+import { ref, update, get } from "firebase/database";
 
 const W = 1020, H = 700;
 const BIRD_X = 150, BIRD_SIZE = 80, BUBBLE_SIZE = 90;
@@ -46,19 +50,34 @@ function HeartIcon({ filled }) {
 
 export default function EnglishRunner() {
   const navigate = useNavigate();
-
-  // ── UI state (only for rendering)
-  const [screen, setScreen] = useState('menu'); // menu | playing | dead
-  const [snap, setSnap]     = useState(null);   // game snapshot for render
+  const [screen, setScreen] = useState('menu');
+  const [snap, setSnap]     = useState(null);
   const [best, setBest]     = useState(() => +(localStorage.getItem('eng_best') || 0));
-
-  // ── All mutable game state lives here – never read via closure in RAF
+  
   const G   = useRef(null);
   const raf = useRef(null);
-  // Store tick in a ref so RAF always calls the same stable function
   const tickRef = useRef(null);
 
-  // ── Init / reset
+  // --- FIREBASE SAVING LOGIC ---
+  const saveToFirebase = async (finalScore) => {
+    const user = auth.currentUser;
+    if (user) {
+      const scoreRef = ref(db, `Users/${user.uid}/bestScores`);
+      try {
+        const snapshot = await get(scoreRef);
+        const currentData = snapshot.val() || {};
+        const prevBest = currentData.flappy || 0;
+
+        if (finalScore > prevBest) {
+          await update(scoreRef, { flappy: finalScore });
+          console.log("New Firebase Best Score Saved!");
+        }
+      } catch (err) {
+        console.error("Firebase update error:", err);
+      }
+    }
+  };
+
   function newGame() {
     G.current = {
       running:     true,
@@ -70,35 +89,32 @@ export default function EnglishRunner() {
       lives:       3,
       combo:       0,
       multiplier:  1,
-      powerup:     null,       // 'shield' | 'slow' | 'double' | null
+      powerup:     null,
       powerupTick: 0,
       lesson:      randLesson(),
       wave:        0,
       lastSpawn:   0,
       lastPipe:    0,
-      flashTick:   0,          // >0 red, <0 green
+      flashTick:   0,
       popups:      [],
       invincible:  0,
     };
   }
 
-  // ── Jump: write directly to ref, no setState needed
   function jump() {
     if (G.current && G.current.running) {
       G.current.birdVel = JUMP_FORCE;
     }
   }
 
-  // ── Keyboard
   useEffect(() => {
     function onKey(e) {
       if (e.code === 'Space' || e.code === 'ArrowUp') { e.preventDefault(); jump(); }
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, []); // empty deps – jump() only touches G.current ref, never stale
+  }, []);
 
-  // ── Hit handler (called from inside tick, receives g directly)
   function hit(g) {
     if (g.invincible > 0) return;
     g.lives--;
@@ -109,16 +125,16 @@ export default function EnglishRunner() {
     if (g.lives <= 0) {
       g.running = false;
       setScreen('dead');
+      // O'yin tugaganda natijani saqlaymiz
+      saveToFirebase(g.score);
     } else {
       g.invincible = 80;
     }
   }
 
-  // ── Define tick once, store in ref
   useEffect(() => {
     tickRef.current = function tick(ts) {
-      raf.current = requestAnimationFrame(tickRef.current); // always stable ref
-
+      raf.current = requestAnimationFrame(tickRef.current);
       const g = G.current;
       if (!g || !g.running) return;
 
@@ -128,7 +144,6 @@ export default function EnglishRunner() {
       const pipeCycle = Math.max(2600, 5000 - wave * 380);
       g.wave = wave;
 
-      // Physics
       g.birdVel += GRAVITY;
       g.birdY   += g.birdVel;
       if (g.birdY < 0 || g.birdY > H - BIRD_SIZE) {
@@ -136,26 +151,21 @@ export default function EnglishRunner() {
         hit(g);
       }
 
-      // Timers
       if (g.invincible > 0) g.invincible--;
       if (g.flashTick > 0)  g.flashTick--;
       if (g.flashTick < 0)  g.flashTick++;
       if (g.powerup && --g.powerupTick <= 0) g.powerup = null;
 
-      // Spawn bubble
       if (ts - g.lastSpawn > spawnRate) {
         g.lastSpawn    = ts;
         const isPowerup = Math.random() > 0.83;
         const isCorrect = !isPowerup && Math.random() > 0.5;
-        const text      = isPowerup ? '⚡'
-          : isCorrect   ? g.lesson.correct
-          : g.lesson.decoys[Math.floor(Math.random() * g.lesson.decoys.length)];
+        const text      = isPowerup ? '⚡' : isCorrect ? g.lesson.correct : g.lesson.decoys[Math.floor(Math.random() * g.lesson.decoys.length)];
         const ptype     = isPowerup ? ['shield','slow','double'][Math.floor(Math.random()*3)] : null;
         const ttl       = isCorrect && wave >= 2 ? Math.max(100, 190 - wave * 11) : 99999;
         g.bubbles.push({ id: uid(), x: W, y: 80 + Math.random() * (H - 250), text, isCorrect, isPowerup, ptype, ttl, age: 0 });
       }
 
-      // Spawn pipe (wave 1+)
       if (wave >= 1 && ts - g.lastPipe > pipeCycle) {
         g.lastPipe    = ts;
         const gapSize = Math.max(165, 265 - wave * 11);
@@ -163,7 +173,6 @@ export default function EnglishRunner() {
         g.pipes.push({ id: uid(), x: W, gapY, gapSize });
       }
 
-      // Bubbles
       const bCX = BIRD_X + BIRD_SIZE / 2;
       const bCY = g.birdY + BIRD_SIZE / 2;
       const kept = [];
@@ -175,7 +184,8 @@ export default function EnglishRunner() {
         const col = Math.sqrt(dx*dx + dy*dy) < (BIRD_SIZE/2 + BUBBLE_SIZE/2) - 13;
         if (col) {
           if (b.isPowerup) {
-            g.powerup = b.ptype; g.powerupTick = 300; g.flashTick = -8;
+            g.powerup = b.ptype;
+            g.powerupTick = 300; g.flashTick = -8;
           } else if (b.isCorrect) {
             const pts = 10 * g.multiplier * (g.powerup === 'double' ? 2 : 1);
             g.score += pts; g.combo++;
@@ -183,19 +193,26 @@ export default function EnglishRunner() {
             g.flashTick = -8;
             g.lesson = randLesson();
             g.popups.push({ id: uid(), text: `+${pts}${g.combo >= 3 ? ' 🔥' : ''}`, x: b.x, y: b.y, age: 0 });
+            
+            // Score yangilanganda localStorage-ni ham yangilaymiz
             const nb = g.score;
-            setBest(prev => { if (nb > prev) { localStorage.setItem('eng_best', nb); return nb; } return prev; });
+            setBest(prev => { 
+                if (nb > prev) { 
+                    localStorage.setItem('eng_best', nb); 
+                    return nb; 
+                } 
+                return prev; 
+            });
           } else {
             if (g.powerup === 'shield') { g.powerup = null; g.powerupTick = 0; g.flashTick = -8; }
             else hit(g);
           }
-          continue; // consumed
+          continue;
         }
         kept.push(b);
       }
       g.bubbles = kept;
 
-      // Pipes
       const keptP = [];
       for (const p of g.pipes) {
         p.x -= speed;
@@ -209,31 +226,21 @@ export default function EnglishRunner() {
       }
       g.pipes = keptP;
 
-      // Popups
       g.popups = g.popups.map(p => ({ ...p, age: p.age + 1 })).filter(p => p.age < 48);
-
-      // Push render snapshot (shallow copy arrays so React sees change)
+      
       setSnap({
-        birdY:       g.birdY,
-        birdVel:     g.birdVel,
-        bubbles:     g.bubbles.slice(),
-        pipes:       g.pipes.slice(),
-        score:       g.score,
-        lives:       g.lives,
-        combo:       g.combo,
-        multiplier:  g.multiplier,
-        powerup:     g.powerup,
-        powerupTick: g.powerupTick,
-        lesson:      g.lesson,
-        wave:        g.wave,
-        flashTick:   g.flashTick,
-        popups:      g.popups.slice(),
+        birdY:       g.birdY, birdVel:     g.birdVel,
+        bubbles:     g.bubbles.slice(), pipes:       g.pipes.slice(),
+        score:       g.score, lives:       g.lives,
+        combo:       g.combo, multiplier:  g.multiplier,
+        powerup:     g.powerup, powerupTick: g.powerupTick,
+        lesson:      g.lesson, wave:        g.wave,
+        flashTick:   g.flashTick, popups:      g.popups.slice(),
         invincible:  g.invincible,
       });
     };
-  }); // runs every render → tickRef.current is always fresh, but RAF calls tickRef.current not tick directly
+  }, []); 
 
-  // ── Start / stop RAF when screen changes
   useEffect(() => {
     if (screen === 'playing') {
       raf.current = requestAnimationFrame(tickRef.current);
@@ -246,13 +253,10 @@ export default function EnglishRunner() {
     setScreen('playing');
   }
 
-  // ── Derived render values
   const s = snap;
   const flash = s?.flashTick ?? 0;
   const flashBg = flash > 0 ? `rgba(220,38,38,0.28)` : flash < 0 ? `rgba(34,197,94,0.22)` : undefined;
-  const birdGlow = s?.powerup === 'shield' ? '0 0 26px 5px rgba(99,102,241,0.9)'
-    : s?.powerup === 'double' ? '0 0 22px 4px rgba(251,191,36,0.9)'
-    : '0 0 14px 2px rgba(59,130,246,0.5)';
+  const birdGlow = s?.powerup === 'shield' ? '0 0 26px 5px rgba(99,102,241,0.9)' : s?.powerup === 'double' ? '0 0 22px 4px rgba(251,191,36,0.9)' : '0 0 14px 2px rgba(59,130,246,0.5)';
   const wl = !s ? 'EASY' : s.wave >= 3 ? 'NIGHTMARE' : s.wave >= 2 ? 'HARD' : s.wave >= 1 ? 'NORMAL' : 'EASY';
   const wc = !s ? '#4ade80' : s.wave >= 3 ? '#f97316' : s.wave >= 2 ? '#ef4444' : s.wave >= 1 ? '#facc15' : '#4ade80';
 
@@ -266,40 +270,33 @@ export default function EnglishRunner() {
       `}</style>
 
       <div className="min-h-screen bg-[#0f172a] flex flex-col items-center p-6 text-white select-none">
-
-        {/* Header */}
         <div className="w-full max-w-[1020px] flex justify-between items-center mb-4">
-                <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: 15 }}>
-          <ArrowLeft size={18} /> Back to Games
-        </button>
+          <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", fontSize: 15 }}>
+            <ArrowLeft size={18} /> Back to Games
+          </button>
 
           <div className="flex gap-3 items-center flex-wrap justify-end">
-            {/* Lives */}
             <div className="bg-slate-800 px-4 py-2 rounded-2xl border border-white/5 flex items-center gap-1">
               {[1,2,3].map(i => <HeartIcon key={i} filled={(s?.lives ?? 3) >= i}/>)}
             </div>
-            {/* Wave */}
             {screen === 'playing' && s && (
               <div className="bg-slate-800 px-4 py-2 rounded-2xl border border-white/5 text-center">
                 <p className="text-[9px] font-black uppercase tracking-widest leading-none mb-1" style={{color:wc}}>WAVE</p>
                 <p className="text-sm font-black" style={{color:wc}}>{wl}</p>
               </div>
             )}
-            {/* Combo */}
             {(s?.combo ?? 0) >= 2 && (
               <div className="bg-amber-400/20 border border-amber-400/40 px-4 py-2 rounded-2xl text-center">
                 <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none mb-1">COMBO</p>
                 <p className="text-lg font-black text-amber-200">{s.combo}×</p>
               </div>
             )}
-            {/* Multiplier */}
             {(s?.multiplier ?? 1) > 1 && (
               <div className="bg-rose-500/20 border border-rose-400/40 px-3 py-2 rounded-2xl text-center">
                 <p className="text-[9px] font-black text-rose-300 uppercase tracking-widest leading-none mb-1">MULT</p>
                 <p className="text-lg font-black text-rose-200">{s.multiplier}×</p>
               </div>
             )}
-            {/* Powerup */}
             {s?.powerup && (
               <div className="bg-violet-500/20 border border-violet-400/40 px-4 py-2 rounded-2xl" style={{minWidth:82}}>
                 <p className="text-[9px] font-black text-violet-300 uppercase tracking-widest leading-none mb-1">
@@ -310,7 +307,6 @@ export default function EnglishRunner() {
                 </div>
               </div>
             )}
-            {/* Score */}
             <div className="bg-slate-800 px-5 py-2 rounded-2xl border border-white/5 text-center">
               <p className="text-[9px] font-black text-blue-400 uppercase leading-none mb-1 tracking-widest">SCORE</p>
               <p className="text-2xl font-black">{s?.score ?? 0}</p>
@@ -322,90 +318,61 @@ export default function EnglishRunner() {
           </div>
         </div>
 
-        {/* Canvas */}
         <div
           onMouseDown={screen === 'playing' ? jump : undefined}
           className="relative rounded-[2.5rem] border-[10px] border-white/5 shadow-2xl overflow-hidden"
-          style={{width:W, height:H, cursor: screen==='playing' ? 'pointer' : 'default',
-            backgroundColor: flashBg ?? '#161e2e'}}
+          style={{width:W, height:H, cursor: screen==='playing' ? 'pointer' : 'default', backgroundColor: flashBg ?? '#161e2e'}}
         >
-          {/* grid */}
-          <div className="absolute inset-0 opacity-[0.055]"
-            style={{backgroundImage:'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',backgroundSize:'60px 60px'}}/>
+          <div className="absolute inset-0 opacity-[0.055]" style={{backgroundImage:'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',backgroundSize:'60px 60px'}}/>
 
-          {/* Question */}
           {screen === 'playing' && s && (
             <div className="absolute top-8 left-0 w-full flex justify-center z-30 pointer-events-none">
               <div className="bg-white px-10 py-4 rounded-[1.8rem] shadow-2xl border-b-[5px] border-gray-200">
                 <p className="text-blue-500 text-[8px] font-black uppercase mb-0.5 text-center tracking-widest">
                   {s.powerup === 'double' ? '⭐ DOUBLE POINTS ACTIVE' : 'Task:'}
                 </p>
-                <h2 className="text-[1.85rem] font-black text-gray-900 tracking-tighter uppercase leading-none">
-                  {s.lesson.q}
-                </h2>
+                <h2 className="text-[1.85rem] font-black text-gray-900 tracking-tighter uppercase leading-none">{s.lesson.q}</h2>
               </div>
             </div>
           )}
 
-          {/* Pipes */}
           {screen === 'playing' && s?.pipes.map(p => (
             <React.Fragment key={p.id}>
-              <div className="absolute bg-red-950 border-x-4 border-red-700/50"
-                style={{left:p.x, top:0, width:50, height:p.gapY}}>
+              <div className="absolute bg-red-950 border-x-4 border-red-700/50" style={{left:p.x, top:0, width:50, height:p.gapY}}>
                 <div className="absolute bottom-0 left-[-5px] right-[-5px] h-8 bg-red-800 border-4 border-red-600/50 rounded-b-xl"/>
               </div>
-              <div className="absolute bg-red-950 border-x-4 border-red-700/50"
-                style={{left:p.x, top:p.gapY+p.gapSize, width:50, height:H-(p.gapY+p.gapSize)}}>
+              <div className="absolute bg-red-950 border-x-4 border-red-700/50" style={{left:p.x, top:p.gapY+p.gapSize, width:50, height:H-(p.gapY+p.gapSize)}}>
                 <div className="absolute top-0 left-[-5px] right-[-5px] h-8 bg-red-800 border-4 border-red-600/50 rounded-t-xl"/>
               </div>
             </React.Fragment>
           ))}
 
-          {/* Bubbles */}
           {screen === 'playing' && s?.bubbles.map(b => {
             const expiring = b.ttl < 99999 && b.age > b.ttl * 0.55;
             return (
               <div key={b.id}
-                className={`absolute flex items-center justify-center rounded-full border-4 shadow-xl ${
-                  b.isPowerup ? 'bg-violet-600 border-violet-300' :
-                                'bg-slate-700 border-slate-500'
-                }`}
-                style={{left:b.x, top:b.y, width:BUBBLE_SIZE, height:BUBBLE_SIZE,
-                  animation: b.isPowerup ? 'pwrBob 1.1s ease-in-out infinite'
-                           : expiring    ? 'blink 0.35s ease-in-out infinite' : undefined,
-                  opacity: expiring ? 0.7 : 1}}>
-                <span className="font-black text-base px-2 text-center uppercase tracking-tight leading-tight">
-                  {b.text}
-                </span>
+                className={`absolute flex items-center justify-center rounded-full border-4 shadow-xl ${b.isPowerup ? 'bg-violet-600 border-violet-300' : 'bg-slate-700 border-slate-500'}`}
+                style={{left:b.x, top:b.y, width:BUBBLE_SIZE, height:BUBBLE_SIZE, animation: b.isPowerup ? 'pwrBob 1.1s ease-in-out infinite' : expiring ? 'blink 0.35s ease-in-out infinite' : undefined, opacity: expiring ? 0.7 : 1}}>
+                <span className="font-black text-base px-2 text-center uppercase tracking-tight leading-tight">{b.text}</span>
               </div>
             );
           })}
 
-          {/* Score popups */}
           {screen === 'playing' && s?.popups.map(p => (
-            <div key={p.id} className="absolute pointer-events-none z-50 font-black text-lg text-amber-300"
-              style={{left:p.x, top:p.y, animation:'fadeUp 0.85s ease-out forwards', whiteSpace:'nowrap',
-                textShadow:'0 2px 8px rgba(0,0,0,0.7)'}}>
+            <div key={p.id} className="absolute pointer-events-none z-50 font-black text-lg text-amber-300" style={{left:p.x, top:p.y, animation:'fadeUp 0.85s ease-out forwards', whiteSpace:'nowrap', textShadow:'0 2px 8px rgba(0,0,0,0.7)'}}>
               {p.text}
             </div>
           ))}
 
-          {/* Bird */}
           {screen === 'playing' && s && (
-            <div className="absolute z-40"
-              style={{left:BIRD_X, top:s.birdY, width:BIRD_SIZE, height:BIRD_SIZE,
-                transform:`rotate(${Math.max(-28,Math.min(28,s.birdVel*2.8))}deg)`,
-                opacity: s.invincible > 0 && Math.floor(s.invincible/6)%2===0 ? 0.28 : 1}}>
-              <img src={doom} className="w-full h-full object-contain" alt="doom"
-                style={{filter:`drop-shadow(${birdGlow})`}}/>
+            <div className="absolute z-40" style={{left:BIRD_X, top:s.birdY, width:BIRD_SIZE, height:BIRD_SIZE, transform:`rotate(${Math.max(-28,Math.min(28,s.birdVel*2.8))}deg)`, opacity: s.invincible > 0 && Math.floor(s.invincible/6)%2===0 ? 0.28 : 1}}>
+              <img src={doom} className="w-full h-full object-contain" alt="doom" style={{filter:`drop-shadow(${birdGlow})`}}/>
               {s.powerup === 'shield' && (
-                <div className="absolute inset-[-10px] rounded-full border-[3px] border-indigo-400"
-                  style={{animation:'shield 0.75s ease-in-out infinite'}}/>
+                <div className="absolute inset-[-10px] rounded-full border-[3px] border-indigo-400" style={{animation:'shield 0.75s ease-in-out infinite'}}/>
               )}
             </div>
           )}
 
-          {/* ── MENU ── */}
           {screen === 'menu' && (
             <div className="absolute inset-0 bg-slate-900/93 backdrop-blur-xl flex items-center justify-center z-50">
               <div className="text-center bg-white p-10 rounded-[3.5rem] text-gray-900 w-full max-w-[360px] border-[8px] border-blue-600/15 shadow-2xl">
@@ -419,35 +386,23 @@ export default function EnglishRunner() {
                   <p>❤️ 3 lives — chain correct answers for a score multiplier</p>
                   <p>⏳ Correct bubbles expire from Wave 2 onward</p>
                 </div>
-                <button onClick={startGame}
-                  className="w-full bg-blue-600 text-white font-black py-5 rounded-3xl text-xl shadow-[0_7px_0_#1e40af] hover:translate-y-[2px] active:translate-y-1 transition-all uppercase">
-                  Start Game
-                </button>
+                <button onClick={startGame} className="w-full bg-blue-600 text-white font-black py-5 rounded-3xl text-xl shadow-[0_7px_0_#1e40af] hover:translate-y-[2px] active:translate-y-1 transition-all uppercase">Start Game</button>
                 <p className="mt-4 text-gray-400 text-xs font-bold uppercase tracking-widest">SPACE / CLICK to jump</p>
               </div>
             </div>
           )}
 
-          {/* ── DEAD ── */}
           {screen === 'dead' && (
             <div className="absolute inset-0 bg-red-700/93 backdrop-blur-md flex flex-col items-center justify-center z-50">
               <AlertCircle size={72} className="mb-4 animate-bounce text-white"/>
               <h2 className="text-7xl font-black mb-2 uppercase tracking-tighter italic">FAILED</h2>
-              <p className="text-red-200 font-bold text-xl mb-1">
-                Score: <span className="text-white font-black">{s?.score ?? 0}</span>
-              </p>
+              <p className="text-red-200 font-bold text-xl mb-1">Score: <span className="text-white font-black">{s?.score ?? 0}</span></p>
               {(s?.score ?? 0) > 0 && (s?.score ?? 0) >= best && (
                 <p className="text-amber-300 font-black text-lg mb-2">🏆 NEW BEST!</p>
               )}
               <div className="flex gap-4 mt-5">
-                <button onClick={startGame}
-                  className="bg-white text-red-600 font-black px-10 py-5 rounded-[1.8rem] text-xl shadow-[0_7px_0_#cbd5e1] hover:translate-y-[2px] active:translate-y-1 transition-all uppercase">
-                  Try Again
-                </button>
-                <button onClick={() => navigate('/')}
-                  className="bg-black/20 text-white border-2 border-white/20 font-black px-8 py-5 rounded-[1.8rem] text-xl hover:bg-black/40 transition-all uppercase">
-                  Quit
-                </button>
+                <button onClick={startGame} className="bg-white text-red-600 font-black px-10 py-5 rounded-[1.8rem] text-xl shadow-[0_7px_0_#cbd5e1] hover:translate-y-[2px] active:translate-y-1 transition-all uppercase">Try Again</button>
+                <button onClick={() => navigate('/')} className="bg-black/20 text-white border-2 border-white/20 font-black px-8 py-5 rounded-[1.8rem] text-xl hover:bg-black/40 transition-all uppercase">Quit</button>
               </div>
             </div>
           )}
@@ -460,4 +415,3 @@ export default function EnglishRunner() {
     </>
   );
 }
-

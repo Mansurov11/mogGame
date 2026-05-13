@@ -12,7 +12,7 @@ const Profile = () => {
   // Ma'lumotlar uchun state
   const [userData, setUserData] = useState(null);
   const [bestScores, setBestScores] = useState({
-    flappy: 0, wordle: 0, guess: 0, doom: 0, snake: 0, glyph: 0
+    flappy: 0, doom: 0, snake: 0, glyph: 0
   });
 
   // Sahifa yuklanish holati
@@ -26,25 +26,35 @@ const Profile = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
+        // Realtime Database-dan foydalanuvchi ma'lumotlarini olish
+        // DIQQAT: Bazadagi papka nomi 'Users' ekanligini tekshiring
         const userRef = ref(db, 'Users/' + currentUser.uid);
         
-        // Bazadan ma'lumotni bir marta to'liq olamiz
-       onValue(userRef, (snapshot) => {
-  const data = snapshot.val();
-  console.log("Bazadan kelgan ma'lumot:", data); // Buni tekshiring
-  if (data) {
-    setUserData({
-      userName: data.username || "Foydalanuvchi",
-      email: currentUser.email,
-      role: data.role || "Player",
-    });
-    // ...
-  }
-  setPageLoading(false);
-}, (error) => {
-  console.error("Firebase xatosi:", error); // Xatolikni ko'rsatadi
-  setPageLoading(false);
-});
+        onValue(userRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const data = snapshot.val();
+            setUserData({
+              userName: data.username || "Foydalanuvchi",
+              email: currentUser.email,
+              role: data.role || "Player",
+            });
+            if (data.bestScores) {
+              setBestScores(prev => ({ ...prev, ...data.bestScores }));
+            }
+          } else {
+            // Agar bazada ma'lumot bo'lmasa, Auth'dan olingan emailni ko'rsatamiz
+            setUserData({
+              userName: "Noma'lum",
+              email: currentUser.email,
+              role: "Player",
+            });
+          }
+          // Ma'lumot tekshirib bo'lingach yuklashni to'xtatamiz
+          setPageLoading(false);
+        }, (error) => {
+          console.error("Firebase xatosi:", error);
+          setPageLoading(false);
+        });
       } else {
         navigate("/login");
       }
@@ -59,7 +69,6 @@ const Profile = () => {
   const bg = isDark ? "#0f1117" : "#f8f9fa";
   const textPrimary = isDark ? "#f1f5f9" : "#111827";
 
-  // 1. Agar sahifa yuklanayotgan bo'lsa, Spinner ko'rsatamiz
   if (pageLoading) {
     return (
       <div style={{ 
@@ -77,11 +86,8 @@ const Profile = () => {
     );
   }
 
-  // 2. Sahifa tayyor bo'lganda asosiy qism (userData mavjud bo'lganda)
   const scores = [
     { id: "flappy", title: "Lexical Runner", icon: Zap, color: "#3b82f6", score: bestScores.flappy, unit: "pts" },
-    { id: "wordle", title: "Wordle", icon: Grid3x3, color: "#10b981", score: bestScores.wordle, unit: "tries" },
-    { id: "guess", title: "Guess the Word", icon: Type, color: "#3b82f6", score: bestScores.guess, unit: "wins" },
     { id: "doom", title: "Doom", icon: Skull, color: "#ef4444", score: bestScores.doom, unit: "pts" },
     { id: "snake", title: "Word Snake", icon: Snail, color: "#10b9b1", score: bestScores.snake, unit: "pts" },
     { id: "glyph", title: "Glyph Strike", icon: ALargeSmall, color: "#ef4444", score: bestScores.glyph, unit: "pts" },
@@ -95,12 +101,10 @@ const Profile = () => {
     <div style={{ backgroundColor: bg, minHeight: "100vh" }}>
       <div style={{ maxWidth: 1280, margin: "0 auto", padding: "32px 16px" }}>
         
-        {/* Back link */}
         <Link to="/" style={{ display: "inline-flex", alignItems: "center", gap: 8, color: "#64748b", textDecoration: "none", marginBottom: 24, fontSize: 15, fontWeight: 600 }}>
           <ArrowLeft size={18} /> Back to Games
         </Link>
 
-        {/* Header */}
         <div style={{ marginBottom: 32, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", position: "relative" }}>
           <button onClick={toggleTheme} style={{ position: "absolute", top: 0, right: 0, padding: 8, borderRadius: 8, border: `1px solid ${border}`, backgroundColor: cardBg, color: textSecondary, cursor: "pointer" }}>
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
@@ -109,7 +113,6 @@ const Profile = () => {
           <p style={{ color: textSecondary, marginTop: 4 }}>Shaxsiy ma'lumotlar va yutuqlar</p>
         </div>
 
-        {/* Hero Card */}
         <div style={{ backgroundColor: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 24, display: "flex", alignItems: "center", gap: 24, marginBottom: 24 }}>
           <div style={{ 
             width: 80, height: 80, borderRadius: 12, 
@@ -117,7 +120,7 @@ const Profile = () => {
             display: "flex", alignItems: "center", justifyContent: "center", 
             fontSize: 32, fontWeight: 900 
           }}>
-            {userData?.userName?.charAt(0).toUpperCase()}
+            {userData?.userName?.charAt(0).toUpperCase() || "?"}
           </div>
           <div>
             <h2 style={{ fontSize: 24, fontWeight: 900, color: textPrimary, margin: 0 }}>{userData?.userName}</h2>
