@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
 import { User, Mail, Sun, Moon, ArrowLeft, Trophy, Zap, Grid3x3, Type, Skull, Snail, ALargeSmall, Loader2 } from "lucide-react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useNavigate } from "react-router-dom";
 import { auth, db } from "../../firebase"; 
 import { onAuthStateChanged } from "firebase/auth";
 import { ref, onValue } from "firebase/database";
 
 const Profile = () => {
+  
   const navigate = useNavigate();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   
@@ -17,7 +18,13 @@ const Profile = () => {
 
   // Sahifa yuklanish holati
   const [pageLoading, setPageLoading] = useState(true);
+  
+  const authToken = localStorage.getItem("authToken");
 
+
+    if (!authToken) {
+    return <Navigate to="/login" replace />;
+  }
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
