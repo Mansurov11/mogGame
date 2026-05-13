@@ -29,24 +29,22 @@ const Profile = () => {
         const userRef = ref(db, 'Users/' + currentUser.uid);
         
         // Bazadan ma'lumotni bir marta to'liq olamiz
-        onValue(userRef, (snapshot) => {
-          const data = snapshot.val();
-          if (data) {
-            setUserData({
-              userName: data.username || "Foydalanuvchi",
-              email: currentUser.email,
-              role: data.role || "Player",
-            });
-            if (data.bestScores) {
-              setBestScores(prev => ({ ...prev, ...data.bestScores }));
-            }
-          }
-          // Ma'lumot kelishi bilan yuklanishni to'xtatamiz
-          setPageLoading(false);
-        }, (error) => {
-          console.error(error);
-          setPageLoading(false);
-        });
+       onValue(userRef, (snapshot) => {
+  const data = snapshot.val();
+  console.log("Bazadan kelgan ma'lumot:", data); // Buni tekshiring
+  if (data) {
+    setUserData({
+      userName: data.username || "Foydalanuvchi",
+      email: currentUser.email,
+      role: data.role || "Player",
+    });
+    // ...
+  }
+  setPageLoading(false);
+}, (error) => {
+  console.error("Firebase xatosi:", error); // Xatolikni ko'rsatadi
+  setPageLoading(false);
+});
       } else {
         navigate("/login");
       }
