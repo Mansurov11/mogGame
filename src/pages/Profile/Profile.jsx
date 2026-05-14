@@ -15,13 +15,10 @@ const Profile = () => {
   const [bestScores, setBestScores] = useState({
     flappy: 0, doom: 0, snake: 0, glyph: 0
   });
-
   // Sahifa yuklanish holati
   const [pageLoading, setPageLoading] = useState(true);
   
   const authToken = localStorage.getItem("authToken");
-
-
     if (!authToken) {
     return <Navigate to="/login" replace />;
   }

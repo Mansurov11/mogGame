@@ -368,7 +368,7 @@ export default function EnglishRunner() {
             <div className="absolute z-40" style={{left:BIRD_X, top:s.birdY, width:BIRD_SIZE, height:BIRD_SIZE, transform:`rotate(${Math.max(-28,Math.min(28,s.birdVel*2.8))}deg)`, opacity: s.invincible > 0 && Math.floor(s.invincible/6)%2===0 ? 0.28 : 1}}>
               <img src={doom} className="w-full h-full object-contain" alt="doom" style={{filter:`drop-shadow(${birdGlow})`}}/>
               {s.powerup === 'shield' && (
-                <div className="absolute inset-[-10px] rounded-full border-[3px] border-indigo-400" style={{animation:'shield 0.75s ease-in-out infinite'}}/>
+                <div className="absolute -inset-2.5 rounded-full border-[3px] border-indigo-400" style={{animation:'shield 0.75s ease-in-out infinite'}}/>
               )}
             </div>
           )}

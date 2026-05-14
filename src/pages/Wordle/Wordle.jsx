@@ -55,10 +55,21 @@ export default function Wordle() {
   const [shake, setShake] = useState(false);
   const [onlineLanguages, setOnlineLanguages] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
 
   // LOCALSTORAGE'DAN THEME'NI OLISH
   const [themeName, setThemeName] = useState(localStorage.getItem("theme") === "dark" ? "dark" : "light");
   const theme = THEMES[themeName];
+
+  // Check if mobile device
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchWords = async () => {
@@ -119,7 +130,10 @@ export default function Wordle() {
 
   useEffect(() => {
     if (!difficulty) return;
-    const handler = (e) => handleKey(e.key.toUpperCase());
+    const handler = (e) => {
+      e.preventDefault();
+      handleKey(e.key.toUpperCase());
+    };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [currentGuess, gameOver, difficulty]);
@@ -150,15 +164,15 @@ export default function Wordle() {
 
   if (!lang) {
     return (
-      <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
         <div style={{ width: "100%", maxWidth: 400 }}>
-          <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: 24 }}><ArrowLeft size={18} /> Back</button>
-          <div style={{ background: theme.card, borderRadius: 24, padding: "40px 32px", border: `1px solid ${theme.border}` }}>
-            <h1 style={{ textAlign: "center", fontSize: 32, fontWeight: 900, color: theme.text, margin: 0 }}>Wordle</h1>
+          <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: "16px" }}><ArrowLeft size={18} /> Back</button>
+          <div style={{ background: theme.card, borderRadius: isMobile ? 16 : 24, padding: isMobile ? "32px 24px" : "40px 32px", border: `1px solid ${theme.border}` }}>
+            <h1 style={{ textAlign: "center", fontSize: isMobile ? 28 : 32, fontWeight: 900, color: theme.text, margin: 0 }}>Wordle</h1>
             <p style={{ textAlign: "center", color: theme.subText, fontSize: 14, margin: "8px 0 28px" }}>Select language</p>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {onlineLanguages && Object.entries(onlineLanguages).map(([key, data]) => (
-                <button key={key} onClick={() => setLang(key)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "18px 24px", borderRadius: 16, border: "none", background: "#2563eb", cursor: "pointer", fontSize: 18, fontWeight: 700, color: "#fff" }}>
+                <button key={key} onClick={() => setLang(key)} style={{ display: "flex", alignItems: "center", gap: 14, padding: "18px 24px", borderRadius: 16, border: "none", background: "#2563eb", cursor: "pointer", fontSize: isMobile ? 16 : 18, fontWeight: 700, color: "#fff" }}>
                   <span>{data.flag}</span> {data.label}
                 </button>
               ))}
@@ -171,14 +185,14 @@ export default function Wordle() {
 
   if (!difficulty) {
     return (
-      <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
         <div style={{ width: "100%", maxWidth: 400 }}>
-          <button onClick={() => setLang(null)} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: 24 }}><ArrowLeft size={18} /> Back</button>
-          <div style={{ background: theme.card, borderRadius: 24, padding: "40px 32px", border: `1px solid ${theme.border}` }}>
-            <h1 style={{ textAlign: "center", fontSize: 28, fontWeight: 800, color: theme.text, marginBottom: 28 }}>Difficulty</h1>
+          <button onClick={() => setLang(null)} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: "16px" }}><ArrowLeft size={18} /> Back</button>
+          <div style={{ background: theme.card, borderRadius: isMobile ? 16 : 24, padding: isMobile ? "32px 24px" : "40px 32px", border: `1px solid ${theme.border}` }}>
+            <h1 style={{ textAlign: "center", fontSize: isMobile ? 24 : 28, fontWeight: 800, color: theme.text, marginBottom: 28 }}>Difficulty</h1>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               {["easy", "medium", "hard"].map((d) => (
-                <button key={d} onClick={() => startGame(lang, d)} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: 18, fontWeight: 700, textTransform: "capitalize" }}>{d}</button>
+                <button key={d} onClick={() => startGame(lang, d)} style={{ background: "#2563eb", color: "#fff", border: "none", borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: isMobile ? 16 : 18, fontWeight: 700, textTransform: "capitalize" }}>{d}</button>
               ))}
             </div>
           </div>
@@ -188,31 +202,58 @@ export default function Wordle() {
   }
 
   const langData = onlineLanguages[lang];
+  const tileSize = isMobile ? 48 : 54;
+  const tileGap = isMobile ? 6 : 8;
 
   return (
-    <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div style={{ width: "100%", maxWidth: 480 }}>
-        <button onClick={() => setDifficulty(null)} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: 16 }}><ArrowLeft size={18} /> Back</button>
+    <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: isMobile ? "flex-start" : "center", padding: isMobile ? "12px" : "16px", paddingTop: isMobile ? "20px" : "16px" }}>
+      <div style={{ width: "100%", maxWidth: isMobile ? "100%" : 480 }}>
+        <button onClick={() => setDifficulty(null)} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: isMobile ? 12 : 16, fontSize: "16px" }}><ArrowLeft size={18} /> Back</button>
         
-        <div style={{ background: theme.card, borderRadius: 28, border: `1px solid ${theme.border}`, padding: "32px 24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
-            <h1 style={{ fontSize: 24, fontWeight: 900, color: theme.text, margin: 0 }}>{langData.flag} Wordle</h1>
-            <span style={{ fontSize: 12, fontWeight: 800, color: "#fff", background: "#2563eb", padding: "4px 12px", borderRadius: 12, textTransform: "uppercase" }}>{difficulty}</span>
+        <div style={{ background: theme.card, borderRadius: isMobile ? 16 : 28, border: `1px solid ${theme.border}`, padding: isMobile ? "24px 16px" : "32px 24px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? 24 : 32 }}>
+            <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, color: theme.text, margin: 0 }}>{langData.flag} Wordle</h1>
+            <span style={{ fontSize: isMobile ? 10 : 12, fontWeight: 800, color: "#fff", background: "#2563eb", padding: isMobile ? "3px 10px" : "4px 12px", borderRadius: 12, textTransform: "uppercase" }}>{difficulty}</span>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
+          {/* Hidden input for mobile keyboard */}
+          {isMobile && !gameOver && (
+            <input
+              type="text"
+              value={currentGuess}
+              onChange={(e) => {
+                const val = e.target.value.toUpperCase().slice(0, WORD_LENGTH);
+                if (/^[A-ZА-ЯЁ']*$/.test(val)) setCurrentGuess(val);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") handleKey("ENTER");
+                else if (e.key === "Backspace") e.preventDefault();
+              }}
+              autoFocus
+              maxLength={WORD_LENGTH}
+              style={{
+                position: "absolute",
+                opacity: 0,
+                pointerEvents: "none",
+                width: 1,
+                height: 1
+              }}
+            />
+          )}
+
+          <div style={{ display: "flex", flexDirection: "column", gap: tileGap, marginBottom: isMobile ? 20 : 32 }}>
             {Array.from({ length: MAX_ATTEMPTS }).map((_, r) => {
               const isCurr = r === guesses.length && !gameOver;
               const word = r < guesses.length ? guesses[r] : (isCurr ? currentGuess : "");
               const states = r < guesses.length ? getLetterStates(guesses[r], targetWord) : [];
               return (
-                <div key={r} style={{ display: "flex", gap: 8, justifyContent: "center", animation: isCurr && shake ? "shake 0.4s ease" : "" }}>
+                <div key={r} style={{ display: "flex", gap: tileGap, justifyContent: "center", animation: isCurr && shake ? "shake 0.4s ease" : "" }}>
                   {Array.from({ length: WORD_LENGTH }).map((_, c) => {
                     const char = word[c] || "";
                     const st = r < guesses.length ? states[c] : (isCurr && char ? "current" : "empty");
                     const colors = theme.tiles[st];
                     return (
-                      <div key={c} style={{ width: 54, height: 54, border: `2px solid ${colors.border}`, borderRadius: 12, background: colors.bg, color: colors.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 800 }}>{char}</div>
+                      <div key={c} style={{ width: tileSize, height: tileSize, border: `2px solid ${colors.border}`, borderRadius: isMobile ? 8 : 12, background: colors.bg, color: colors.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isMobile ? 20 : 24, fontWeight: 800 }}>{char}</div>
                     );
                   })}
                 </div>
@@ -220,34 +261,57 @@ export default function Wordle() {
             })}
           </div>
 
-          {gameOver && (
-            <div style={{ marginBottom: 24, padding: 20, borderRadius: 20, background: won ? "#16a34a20" : "#dc262620", textAlign: "center", border: `1px solid ${won ? "#16a34a" : "#dc2626"}` }}>
-              <h2 style={{ fontSize: 22, fontWeight: 900, color: won ? "#16a34a" : "#dc2626", margin: 0 }}>{won ? (langData.winMessage || "Victory!") : "Game Over"}</h2>
-              {!won && <p style={{ color: theme.text, marginTop: 4 }}>Word: <b>{targetWord}</b></p>}
-              <button onClick={() => startGame(lang, difficulty)} style={{ marginTop: 16, width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 12, padding: "12px", fontWeight: 800, cursor: "pointer" }}>New Game</button>
+          {/* Mobile: Show instruction */}
+          {isMobile && !gameOver && (
+            <div style={{ textAlign: "center", marginBottom: 20, padding: "12px", background: theme.bg, borderRadius: 12 }}>
+              <p style={{ color: theme.subText, fontSize: 14, margin: 0 }}>
+                Type on your keyboard • Press Enter to submit
+              </p>
             </div>
           )}
 
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {langData.keyboard.map((row, i) => (
-              <div key={i} style={{ display: "flex", gap: 6, justifyContent: "center" }}>
-                {row.map(key => {
-                  const isSp = key === "ENTER" || key === "⌫";
-                  let bg = theme.keyboard.bg, color = theme.keyboard.text;
-                  const st = !isSp ? (function(){
-                    let b=null; const p={correct:3, present:2, absent:1};
-                    guesses.forEach(g => { const s=getLetterStates(g,targetWord); g.split("").forEach((l,ix) => { if(l===key) if(!b||p[s[ix]]>p[b]) b=s[ix]; }); });
-                    return b;
-                  })() : null;
-                  if(st){ bg=theme.tiles[st].bg; color="#fff"; }
-                  return <button key={key} onClick={() => handleKey(key)} style={{ minWidth: isSp ? 56 : 36, height: 48, borderRadius: 10, border: "none", background: bg, color, fontWeight: 800, cursor: "pointer", fontSize: isSp ? 12 : 16 }}>{key}</button>
-                })}
-              </div>
-            ))}
-          </div>
+          {gameOver && (
+            <div style={{ marginBottom: 24, padding: isMobile ? 16 : 20, borderRadius: isMobile ? 16 : 20, background: won ? "#16a34a20" : "#dc262620", textAlign: "center", border: `1px solid ${won ? "#16a34a" : "#dc2626"}` }}>
+              <h2 style={{ fontSize: isMobile ? 20 : 22, fontWeight: 900, color: won ? "#16a34a" : "#dc2626", margin: 0 }}>{won ? (langData.winMessage || "Victory!") : "Game Over"}</h2>
+              {!won && <p style={{ color: theme.text, marginTop: 4, fontSize: isMobile ? 14 : 16 }}>Word: <b>{targetWord}</b></p>}
+              <button onClick={() => startGame(lang, difficulty)} style={{ marginTop: 16, width: "100%", background: "#2563eb", color: "#fff", border: "none", borderRadius: 12, padding: "12px", fontWeight: 800, cursor: "pointer", fontSize: isMobile ? 16 : 18 }}>New Game</button>
+            </div>
+          )}
+
+          {/* Desktop keyboard - hidden on mobile */}
+          {!isMobile && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {langData.keyboard.map((row, i) => (
+                <div key={i} style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                  {row.map(key => {
+                    const isSp = key === "ENTER" || key === "⌫";
+                    let bg = theme.keyboard.bg, color = theme.keyboard.text;
+                    const st = !isSp ? (function(){
+                      let b=null; const p={correct:3, present:2, absent:1};
+                      guesses.forEach(g => { const s=getLetterStates(g,targetWord); g.split("").forEach((l,ix) => { if(l===key) if(!b||p[s[ix]]>p[b]) b=s[ix]; }); });
+                      return b;
+                    })() : null;
+                    if(st){ bg=theme.tiles[st].bg; color="#fff"; }
+                    return <button key={key} onClick={() => handleKey(key)} style={{ minWidth: isSp ? 56 : 36, height: 48, borderRadius: 10, border: "none", background: bg, color, fontWeight: 800, cursor: "pointer", fontSize: isSp ? 12 : 16 }}>{key}</button>
+                  })}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
-      <style>{`@keyframes shake { 0%,100%{transform:translateX(0)} 20%,60%{transform:translateX(-6px)} 40%,80%{transform:translateX(6px)} }`}</style>
+      <style>{`
+        @keyframes shake { 
+          0%,100%{transform:translateX(0)} 
+          20%,60%{transform:translateX(-6px)} 
+          40%,80%{transform:translateX(6px)} 
+        }
+        @media (max-width: 768px) {
+          body { 
+            touch-action: manipulation;
+          }
+        }
+      `}</style>
     </div>
   );
 }
