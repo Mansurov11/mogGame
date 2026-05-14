@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ArrowLeft, Sparkles, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import doom from "../../../public/doom.png";
 
 // FIREBASE INTEGRATSIYASI
-import { auth, db } from "../../firebase"; // O'zingizning firebase faylingiz yo'li
+import { auth, db } from "../../firebase";
 import { ref, update, get } from "firebase/database";
 
-const W = 1020, H = 700;
+const LOGICAL_W = 1020, LOGICAL_H = 700;
 const BIRD_X = 150, BIRD_SIZE = 80, BUBBLE_SIZE = 90;
 const GRAVITY = 0.2, JUMP_FORCE = -8;
 const BASE_SPEED = 4;
@@ -48,17 +48,49 @@ function HeartIcon({ filled }) {
   );
 }
 
+// Hook to get canvas dimensions based on viewport
+function useCanvasDimensions() {
+  const [dims, setDims] = useState({ width: LOGICAL_W, height: LOGICAL_H, scale: 1 });
+
+  useEffect(() => {
+    function update() {
+      // Account for padding (p-4 on small = 16px each side, p-6 on large = 24px each side)
+      const hPad = window.innerWidth < 768 ? 16 : 24;
+      const vPad = window.innerWidth < 768 ? 8 : 16;
+      // Reserve space for header bar (~80px) and hint text (~28px)
+      const maxW = window.innerWidth - hPad * 2;
+      const maxH = window.innerHeight - 80 - 28 - vPad * 2;
+
+      const scaleW = maxW / LOGICAL_W;
+      const scaleH = maxH / LOGICAL_H;
+      const scale = Math.min(scaleW, scaleH, 1); // never upscale beyond 1
+
+      setDims({
+        width: Math.floor(LOGICAL_W * scale),
+        height: Math.floor(LOGICAL_H * scale),
+        scale,
+      });
+    }
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, []);
+
+  return dims;
+}
+
 export default function EnglishRunner() {
   const navigate = useNavigate();
   const [screen, setScreen] = useState('menu');
   const [snap, setSnap]     = useState(null);
   const [best, setBest]     = useState(() => +(localStorage.getItem('eng_best') || 0));
-  
+
+  const { width: canvasW, height: canvasH, scale } = useCanvasDimensions();
+
   const G   = useRef(null);
   const raf = useRef(null);
   const tickRef = useRef(null);
 
-  // --- FIREBASE SAVING LOGIC ---
   const saveToFirebase = async (finalScore) => {
     const user = auth.currentUser;
     if (user) {
@@ -67,10 +99,8 @@ export default function EnglishRunner() {
         const snapshot = await get(scoreRef);
         const currentData = snapshot.val() || {};
         const prevBest = currentData.flappy || 0;
-
         if (finalScore > prevBest) {
           await update(scoreRef, { flappy: finalScore });
-          console.log("New Firebase Best Score Saved!");
         }
       } catch (err) {
         console.error("Firebase update error:", err);
@@ -78,10 +108,13 @@ export default function EnglishRunner() {
     }
   };
 
+  // All game logic operates in logical (1020×700) coordinates.
+  // The canvas is scaled via CSS transform — no coordinate math needed.
+
   function newGame() {
     G.current = {
       running:     true,
-      birdY:       H / 2,
+      birdY:       LOGICAL_H / 2,
       birdVel:     0,
       bubbles:     [],
       pipes:       [],
@@ -125,7 +158,6 @@ export default function EnglishRunner() {
     if (g.lives <= 0) {
       g.running = false;
       setScreen('dead');
-      // O'yin tugaganda natijani saqlaymiz
       saveToFirebase(g.score);
     } else {
       g.invincible = 80;
@@ -146,8 +178,8 @@ export default function EnglishRunner() {
 
       g.birdVel += GRAVITY;
       g.birdY   += g.birdVel;
-      if (g.birdY < 0 || g.birdY > H - BIRD_SIZE) {
-        g.birdY = Math.max(0, Math.min(H - BIRD_SIZE, g.birdY));
+      if (g.birdY < 0 || g.birdY > LOGICAL_H - BIRD_SIZE) {
+        g.birdY = Math.max(0, Math.min(LOGICAL_H - BIRD_SIZE, g.birdY));
         hit(g);
       }
 
@@ -163,14 +195,14 @@ export default function EnglishRunner() {
         const text      = isPowerup ? '⚡' : isCorrect ? g.lesson.correct : g.lesson.decoys[Math.floor(Math.random() * g.lesson.decoys.length)];
         const ptype     = isPowerup ? ['shield','slow','double'][Math.floor(Math.random()*3)] : null;
         const ttl       = isCorrect && wave >= 2 ? Math.max(100, 190 - wave * 11) : 99999;
-        g.bubbles.push({ id: uid(), x: W, y: 80 + Math.random() * (H - 250), text, isCorrect, isPowerup, ptype, ttl, age: 0 });
+        g.bubbles.push({ id: uid(), x: LOGICAL_W, y: 80 + Math.random() * (LOGICAL_H - 250), text, isCorrect, isPowerup, ptype, ttl, age: 0 });
       }
 
       if (wave >= 1 && ts - g.lastPipe > pipeCycle) {
         g.lastPipe    = ts;
         const gapSize = Math.max(165, 265 - wave * 11);
-        const gapY    = 80 + Math.random() * (H - gapSize - 150);
-        g.pipes.push({ id: uid(), x: W, gapY, gapSize });
+        const gapY    = 80 + Math.random() * (LOGICAL_H - gapSize - 150);
+        g.pipes.push({ id: uid(), x: LOGICAL_W, gapY, gapSize });
       }
 
       const bCX = BIRD_X + BIRD_SIZE / 2;
@@ -193,15 +225,10 @@ export default function EnglishRunner() {
             g.flashTick = -8;
             g.lesson = randLesson();
             g.popups.push({ id: uid(), text: `+${pts}${g.combo >= 3 ? ' 🔥' : ''}`, x: b.x, y: b.y, age: 0 });
-            
-            // Score yangilanganda localStorage-ni ham yangilaymiz
             const nb = g.score;
-            setBest(prev => { 
-                if (nb > prev) { 
-                    localStorage.setItem('eng_best', nb); 
-                    return nb; 
-                } 
-                return prev; 
+            setBest(prev => {
+              if (nb > prev) { localStorage.setItem('eng_best', nb); return nb; }
+              return prev;
             });
           } else {
             if (g.powerup === 'shield') { g.powerup = null; g.powerupTick = 0; g.flashTick = -8; }
@@ -227,7 +254,7 @@ export default function EnglishRunner() {
       g.pipes = keptP;
 
       g.popups = g.popups.map(p => ({ ...p, age: p.age + 1 })).filter(p => p.age < 48);
-      
+
       setSnap({
         birdY:       g.birdY, birdVel:     g.birdVel,
         bubbles:     g.bubbles.slice(), pipes:       g.pipes.slice(),
@@ -239,7 +266,7 @@ export default function EnglishRunner() {
         invincible:  g.invincible,
       });
     };
-  }, []); 
+  }, []);
 
   useEffect(() => {
     if (screen === 'playing') {
@@ -269,147 +296,281 @@ export default function EnglishRunner() {
         @keyframes blink   { 0%,100%{opacity:1} 50%{opacity:.3} }
       `}</style>
 
-      <div className="min-h-screen bg-[#0f172a] flex flex-col items-center p-6 text-white select-none">
-        <div className="w-full max-w-[1020px] flex justify-between items-center mb-4">
-          <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", fontSize: 15 }}>
-            <ArrowLeft size={18} /> Back to Games
+      <div style={{
+        minHeight: '100svh',
+        background: '#0f172a',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        padding: '8px 16px',
+        color: 'white',
+        userSelect: 'none',
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+      }}>
+        {/* ── Header bar ── */}
+        <div style={{
+          width: '100%',
+          maxWidth: canvasW,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 8,
+          marginBottom: 8,
+          flexShrink: 0,
+        }}>
+          <button onClick={() => navigate("/")} style={{
+            display: "flex", alignItems: "center", gap: 6,
+            color: "#64748b", background: "none", border: "none",
+            cursor: "pointer", fontSize: 14, padding: 0,
+          }}>
+            <ArrowLeft size={16} /> Back
           </button>
 
-          <div className="flex gap-3 items-center flex-wrap justify-end">
-            <div className="bg-slate-800 px-4 py-2 rounded-2xl border border-white/5 flex items-center gap-1">
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            <div style={{ background: '#1e293b', padding: '6px 12px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', display: 'flex', alignItems: 'center', gap: 4 }}>
               {[1,2,3].map(i => <HeartIcon key={i} filled={(s?.lives ?? 3) >= i}/>)}
             </div>
             {screen === 'playing' && s && (
-              <div className="bg-slate-800 px-4 py-2 rounded-2xl border border-white/5 text-center">
-                <p className="text-[9px] font-black uppercase tracking-widest leading-none mb-1" style={{color:wc}}>WAVE</p>
-                <p className="text-sm font-black" style={{color:wc}}>{wl}</p>
+              <div style={{ background: '#1e293b', padding: '4px 12px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+                <p style={{ fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 2, color: wc }}>WAVE</p>
+                <p style={{ fontSize: 13, fontWeight: 900, margin: 0, color: wc }}>{wl}</p>
               </div>
             )}
             {(s?.combo ?? 0) >= 2 && (
-              <div className="bg-amber-400/20 border border-amber-400/40 px-4 py-2 rounded-2xl text-center">
-                <p className="text-[9px] font-black text-amber-400 uppercase tracking-widest leading-none mb-1">COMBO</p>
-                <p className="text-lg font-black text-amber-200">{s.combo}×</p>
+              <div style={{ background: 'rgba(251,191,36,0.15)', border: '1px solid rgba(251,191,36,0.3)', padding: '4px 12px', borderRadius: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 9, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 2 }}>COMBO</p>
+                <p style={{ fontSize: 16, fontWeight: 900, color: '#fde68a', margin: 0 }}>{s.combo}×</p>
               </div>
             )}
             {(s?.multiplier ?? 1) > 1 && (
-              <div className="bg-rose-500/20 border border-rose-400/40 px-3 py-2 rounded-2xl text-center">
-                <p className="text-[9px] font-black text-rose-300 uppercase tracking-widest leading-none mb-1">MULT</p>
-                <p className="text-lg font-black text-rose-200">{s.multiplier}×</p>
+              <div style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)', padding: '4px 10px', borderRadius: 16, textAlign: 'center' }}>
+                <p style={{ fontSize: 9, fontWeight: 900, color: '#fca5a5', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 2 }}>MULT</p>
+                <p style={{ fontSize: 16, fontWeight: 900, color: '#fecaca', margin: 0 }}>{s.multiplier}×</p>
               </div>
             )}
             {s?.powerup && (
-              <div className="bg-violet-500/20 border border-violet-400/40 px-4 py-2 rounded-2xl" style={{minWidth:82}}>
-                <p className="text-[9px] font-black text-violet-300 uppercase tracking-widest leading-none mb-1">
+              <div style={{ background: 'rgba(139,92,246,0.15)', border: '1px solid rgba(139,92,246,0.3)', padding: '4px 12px', borderRadius: 16, minWidth: 76 }}>
+                <p style={{ fontSize: 9, fontWeight: 900, color: '#c4b5fd', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 4 }}>
                   {s.powerup === 'shield' ? '🛡 SHIELD' : s.powerup === 'slow' ? '⏱ SLOW' : '⭐ ×2 PTS'}
                 </p>
-                <div className="w-full bg-slate-700 rounded-full h-1.5">
-                  <div className="bg-violet-400 h-1.5 rounded-full" style={{width:`${(s.powerupTick/300)*100}%`}}/>
+                <div style={{ width: '100%', background: '#334155', borderRadius: 4, height: 5 }}>
+                  <div style={{ background: '#a78bfa', height: 5, borderRadius: 4, width: `${(s.powerupTick/300)*100}%` }}/>
                 </div>
               </div>
             )}
-            <div className="bg-slate-800 px-5 py-2 rounded-2xl border border-white/5 text-center">
-              <p className="text-[9px] font-black text-blue-400 uppercase leading-none mb-1 tracking-widest">SCORE</p>
-              <p className="text-2xl font-black">{s?.score ?? 0}</p>
+            <div style={{ background: '#1e293b', padding: '4px 14px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+              <p style={{ fontSize: 9, fontWeight: 900, color: '#60a5fa', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 2 }}>SCORE</p>
+              <p style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>{s?.score ?? 0}</p>
             </div>
-            <div className="bg-slate-800 px-5 py-2 rounded-2xl border border-white/5 text-center">
-              <p className="text-[9px] font-black text-amber-400 uppercase leading-none mb-1 tracking-widest">BEST</p>
-              <p className="text-2xl font-black">{best}</p>
+            <div style={{ background: '#1e293b', padding: '4px 14px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.05)', textAlign: 'center' }}>
+              <p style={{ fontSize: 9, fontWeight: 900, color: '#fbbf24', textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 2 }}>BEST</p>
+              <p style={{ fontSize: 20, fontWeight: 900, margin: 0 }}>{best}</p>
             </div>
           </div>
         </div>
 
+        {/* ── Game canvas wrapper ──
+            The inner div is always LOGICAL_W × LOGICAL_H and scaled via CSS transform.
+            Everything inside uses logical pixel coordinates — no coordinate conversion needed. */}
         <div
+          style={{
+            width: canvasW,
+            height: canvasH,
+            flexShrink: 0,
+            position: 'relative',
+            borderRadius: 32,
+            border: '2px solid rgba(255,255,255,0.05)',
+            overflow: 'hidden',
+            cursor: screen === 'playing' ? 'pointer' : 'default',
+          }}
           onMouseDown={screen === 'playing' ? jump : undefined}
-          className="relative rounded-[2.5rem] border-[10px] border-white/5 shadow-2xl overflow-hidden"
-          style={{width:W, height:H, cursor: screen==='playing' ? 'pointer' : 'default', backgroundColor: flashBg ?? '#161e2e'}}
+          onTouchStart={screen === 'playing' ? (e) => { e.preventDefault(); jump(); } : undefined}
         >
-          <div className="absolute inset-0 opacity-[0.055]" style={{backgroundImage:'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',backgroundSize:'60px 60px'}}/>
+          {/* Scaled inner stage — always logical size */}
+          <div style={{
+            position: 'absolute',
+            top: 0, left: 0,
+            width: LOGICAL_W,
+            height: LOGICAL_H,
+            transformOrigin: 'top left',
+            transform: `scale(${scale})`,
+            backgroundColor: flashBg ?? '#161e2e',
+          }}>
+            {/* Grid overlay */}
+            <div style={{
+              position: 'absolute', inset: 0, opacity: 0.055,
+              backgroundImage: 'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)',
+              backgroundSize: '60px 60px',
+            }}/>
 
-          {screen === 'playing' && s && (
-            <div className="absolute top-8 left-0 w-full flex justify-center z-30 pointer-events-none">
-              <div className="bg-white px-10 py-4 rounded-[1.8rem] shadow-2xl border-b-[5px] border-gray-200">
-                <p className="text-blue-500 text-[8px] font-black uppercase mb-0.5 text-center tracking-widest">
-                  {s.powerup === 'double' ? '⭐ DOUBLE POINTS ACTIVE' : 'Task:'}
-                </p>
-                <h2 className="text-[1.85rem] font-black text-gray-900 tracking-tighter uppercase leading-none">{s.lesson.q}</h2>
-              </div>
-            </div>
-          )}
-
-          {screen === 'playing' && s?.pipes.map(p => (
-            <React.Fragment key={p.id}>
-              <div className="absolute bg-red-950 border-x-4 border-red-700/50" style={{left:p.x, top:0, width:50, height:p.gapY}}>
-                <div className="absolute bottom-0 left-[-5px] right-[-5px] h-8 bg-red-800 border-4 border-red-600/50 rounded-b-xl"/>
-              </div>
-              <div className="absolute bg-red-950 border-x-4 border-red-700/50" style={{left:p.x, top:p.gapY+p.gapSize, width:50, height:H-(p.gapY+p.gapSize)}}>
-                <div className="absolute top-0 left-[-5px] right-[-5px] h-8 bg-red-800 border-4 border-red-600/50 rounded-t-xl"/>
-              </div>
-            </React.Fragment>
-          ))}
-
-          {screen === 'playing' && s?.bubbles.map(b => {
-            const expiring = b.ttl < 99999 && b.age > b.ttl * 0.55;
-            return (
-              <div key={b.id}
-                className={`absolute flex items-center justify-center rounded-full border-4 shadow-xl ${b.isPowerup ? 'bg-violet-600 border-violet-300' : 'bg-slate-700 border-slate-500'}`}
-                style={{left:b.x, top:b.y, width:BUBBLE_SIZE, height:BUBBLE_SIZE, animation: b.isPowerup ? 'pwrBob 1.1s ease-in-out infinite' : expiring ? 'blink 0.35s ease-in-out infinite' : undefined, opacity: expiring ? 0.7 : 1}}>
-                <span className="font-black text-base px-2 text-center uppercase tracking-tight leading-tight">{b.text}</span>
-              </div>
-            );
-          })}
-
-          {screen === 'playing' && s?.popups.map(p => (
-            <div key={p.id} className="absolute pointer-events-none z-50 font-black text-lg text-amber-300" style={{left:p.x, top:p.y, animation:'fadeUp 0.85s ease-out forwards', whiteSpace:'nowrap', textShadow:'0 2px 8px rgba(0,0,0,0.7)'}}>
-              {p.text}
-            </div>
-          ))}
-
-          {screen === 'playing' && s && (
-            <div className="absolute z-40" style={{left:BIRD_X, top:s.birdY, width:BIRD_SIZE, height:BIRD_SIZE, transform:`rotate(${Math.max(-28,Math.min(28,s.birdVel*2.8))}deg)`, opacity: s.invincible > 0 && Math.floor(s.invincible/6)%2===0 ? 0.28 : 1}}>
-              <img src={doom} className="w-full h-full object-contain" alt="doom" style={{filter:`drop-shadow(${birdGlow})`}}/>
-              {s.powerup === 'shield' && (
-                <div className="absolute -inset-2.5 rounded-full border-[3px] border-indigo-400" style={{animation:'shield 0.75s ease-in-out infinite'}}/>
-              )}
-            </div>
-          )}
-
-          {screen === 'menu' && (
-            <div className="absolute inset-0 bg-slate-900/93 backdrop-blur-xl flex items-center justify-center z-50">
-              <div className="text-center bg-white p-10 rounded-[3.5rem] text-gray-900 w-full max-w-[360px] border-[8px] border-blue-600/15 shadow-2xl">
-                <Sparkles className="mx-auto text-blue-600 mb-3" size={52}/>
-                <h1 className="text-4xl font-black tracking-tighter mb-1 italic uppercase">Lexical Runner</h1>
-                <p className="text-gray-500 text-sm font-semibold mb-5">Fly into correct answers. Dodge the wrong ones.</p>
-                <div className="text-left bg-blue-50 rounded-2xl p-4 mb-6 text-[13px] space-y-1.5 font-medium text-gray-700">
-                  <p>⚡ Speed ramps up every 60 pts</p>
-                  <p>💜 Purple bubbles = power-ups (shield / slow / ×2)</p>
-                  <p>🔴 Red pipe obstacles appear from Wave 1</p>
-                  <p>❤️ 3 lives — chain correct answers for a score multiplier</p>
-                  <p>⏳ Correct bubbles expire from Wave 2 onward</p>
+            {/* Question banner */}
+            {screen === 'playing' && s && (
+              <div style={{ position: 'absolute', top: 32, left: 0, width: '100%', display: 'flex', justifyContent: 'center', zIndex: 30, pointerEvents: 'none' }}>
+                <div style={{ background: 'white', padding: '16px 40px', borderRadius: 28, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', borderBottom: '5px solid #e5e7eb' }}>
+                  <p style={{ color: '#3b82f6', fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em', margin: 0, marginBottom: 2, textAlign: 'center' }}>
+                    {s.powerup === 'double' ? '⭐ DOUBLE POINTS ACTIVE' : 'Task:'}
+                  </p>
+                  <h2 style={{ fontSize: 30, fontWeight: 900, color: '#111827', letterSpacing: '-0.03em', textTransform: 'uppercase', margin: 0, lineHeight: 1 }}>{s.lesson.q}</h2>
                 </div>
-                <button onClick={startGame} className="w-full bg-blue-600 text-white font-black py-5 rounded-3xl text-xl shadow-[0_7px_0_#1e40af] hover:translate-y-[2px] active:translate-y-1 transition-all uppercase">Start Game</button>
-                <p className="mt-4 text-gray-400 text-xs font-bold uppercase tracking-widest">SPACE / CLICK to jump</p>
               </div>
-            </div>
-          )}
+            )}
 
-          {screen === 'dead' && (
-            <div className="absolute inset-0 bg-red-700/93 backdrop-blur-md flex flex-col items-center justify-center z-50">
-              <AlertCircle size={72} className="mb-4 animate-bounce text-white"/>
-              <h2 className="text-7xl font-black mb-2 uppercase tracking-tighter italic">FAILED</h2>
-              <p className="text-red-200 font-bold text-xl mb-1">Score: <span className="text-white font-black">{s?.score ?? 0}</span></p>
-              {(s?.score ?? 0) > 0 && (s?.score ?? 0) >= best && (
-                <p className="text-amber-300 font-black text-lg mb-2">🏆 NEW BEST!</p>
-              )}
-              <div className="flex gap-4 mt-5">
-                <button onClick={startGame} className="bg-white text-red-600 font-black px-10 py-5 rounded-[1.8rem] text-xl shadow-[0_7px_0_#cbd5e1] hover:translate-y-[2px] active:translate-y-1 transition-all uppercase">Try Again</button>
-                <button onClick={() => navigate('/')} className="bg-black/20 text-white border-2 border-white/20 font-black px-8 py-5 rounded-[1.8rem] text-xl hover:bg-black/40 transition-all uppercase">Quit</button>
+            {/* Pipes */}
+            {screen === 'playing' && s?.pipes.map(p => (
+              <React.Fragment key={p.id}>
+                <div style={{ position: 'absolute', left: p.x, top: 0, width: 50, height: p.gapY, background: '#450a0a', borderLeft: '4px solid rgba(185,28,28,0.5)', borderRight: '4px solid rgba(185,28,28,0.5)' }}>
+                  <div style={{ position: 'absolute', bottom: 0, left: -4, right: -4, height: 32, background: '#991b1b', border: '4px solid rgba(220,38,38,0.5)', borderRadius: '0 0 12px 12px' }}/>
+                </div>
+                <div style={{ position: 'absolute', left: p.x, top: p.gapY + p.gapSize, width: 50, height: LOGICAL_H - (p.gapY + p.gapSize), background: '#450a0a', borderLeft: '4px solid rgba(185,28,28,0.5)', borderRight: '4px solid rgba(185,28,28,0.5)' }}>
+                  <div style={{ position: 'absolute', top: 0, left: -4, right: -4, height: 32, background: '#991b1b', border: '4px solid rgba(220,38,38,0.5)', borderRadius: '12px 12px 0 0' }}/>
+                </div>
+              </React.Fragment>
+            ))}
+
+            {/* Bubbles */}
+            {screen === 'playing' && s?.bubbles.map(b => {
+              const expiring = b.ttl < 99999 && b.age > b.ttl * 0.55;
+              return (
+                <div key={b.id} style={{
+                  position: 'absolute', left: b.x, top: b.y,
+                  width: BUBBLE_SIZE, height: BUBBLE_SIZE,
+                  borderRadius: '50%',
+                  border: `4px solid ${b.isPowerup ? 'rgba(167,139,250,0.8)' : 'rgba(100,116,139,0.8)'}`,
+                  background: b.isPowerup ? '#7c3aed' : '#334155',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                  animation: b.isPowerup ? 'pwrBob 1.1s ease-in-out infinite' : expiring ? 'blink 0.35s ease-in-out infinite' : undefined,
+                  opacity: expiring ? 0.7 : 1,
+                }}>
+                  <span style={{ fontWeight: 900, fontSize: 14, padding: '0 8px', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '-0.02em', lineHeight: 1.2 }}>{b.text}</span>
+                </div>
+              );
+            })}
+
+            {/* Score popups */}
+            {screen === 'playing' && s?.popups.map(p => (
+              <div key={p.id} style={{
+                position: 'absolute', left: p.x, top: p.y,
+                pointerEvents: 'none', zIndex: 50,
+                fontWeight: 900, fontSize: 18, color: '#fcd34d',
+                animation: 'fadeUp 0.85s ease-out forwards',
+                whiteSpace: 'nowrap',
+                textShadow: '0 2px 8px rgba(0,0,0,0.7)',
+              }}>
+                {p.text}
               </div>
-            </div>
-          )}
+            ))}
+
+            {/* Bird */}
+            {screen === 'playing' && s && (
+              <div style={{
+                position: 'absolute', left: BIRD_X, top: s.birdY,
+                width: BIRD_SIZE, height: BIRD_SIZE,
+                transform: `rotate(${Math.max(-28, Math.min(28, s.birdVel * 2.8))}deg)`,
+                opacity: s.invincible > 0 && Math.floor(s.invincible / 6) % 2 === 0 ? 0.28 : 1,
+                zIndex: 40,
+              }}>
+                <img src={doom} style={{ width: '100%', height: '100%', objectFit: 'contain', filter: `drop-shadow(${birdGlow})` }} alt="character"/>
+                {s.powerup === 'shield' && (
+                  <div style={{
+                    position: 'absolute', inset: -10, borderRadius: '50%',
+                    border: '3px solid #818cf8',
+                    animation: 'shield 0.75s ease-in-out infinite',
+                  }}/>
+                )}
+              </div>
+            )}
+
+            {/* Menu overlay */}
+            {screen === 'menu' && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(15,23,42,0.93)',
+                backdropFilter: 'blur(20px)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                zIndex: 50,
+              }}>
+                <div style={{
+                  textAlign: 'center', background: 'white', padding: '40px 40px',
+                  borderRadius: 48, color: '#111827', maxWidth: 360, width: '90%',
+                  border: '8px solid rgba(37,99,235,0.15)',
+                }}>
+                  <Sparkles style={{ color: '#2563eb', marginBottom: 12, display: 'block', margin: '0 auto 12px' }} size={52}/>
+                  <h1 style={{ fontSize: 32, fontWeight: 900, letterSpacing: '-0.04em', margin: '0 0 4px', fontStyle: 'italic', textTransform: 'uppercase' }}>Lexical Runner</h1>
+                  <p style={{ color: '#6b7280', fontSize: 14, fontWeight: 600, margin: '0 0 20px' }}>Fly into correct answers. Dodge the wrong ones.</p>
+                  <div style={{ textAlign: 'left', background: '#eff6ff', borderRadius: 16, padding: 16, marginBottom: 24, fontSize: 13, lineHeight: 1.6, fontWeight: 500, color: '#374151' }}>
+                    <p style={{ margin: '0 0 6px' }}>⚡ Speed ramps up every 60 pts</p>
+                    <p style={{ margin: '0 0 6px' }}>💜 Purple bubbles = power-ups (shield / slow / ×2)</p>
+                    <p style={{ margin: '0 0 6px' }}>🔴 Red pipe obstacles appear from Wave 1</p>
+                    <p style={{ margin: '0 0 6px' }}>❤️ 3 lives — chain correct answers for a score multiplier</p>
+                    <p style={{ margin: 0 }}>⏳ Correct bubbles expire from Wave 2 onward</p>
+                  </div>
+                  <button
+                    onClick={startGame}
+                    style={{
+                      width: '100%', background: '#2563eb', color: 'white',
+                      fontWeight: 900, padding: '20px 0', borderRadius: 24,
+                      fontSize: 18, border: 'none', cursor: 'pointer',
+                      boxShadow: '0 7px 0 #1e40af', textTransform: 'uppercase', letterSpacing: '0.02em',
+                    }}
+                  >
+                    Start Game
+                  </button>
+                  <p style={{ marginTop: 16, color: '#9ca3af', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em' }}>SPACE / CLICK / TAP to jump</p>
+                </div>
+              </div>
+            )}
+
+            {/* Dead overlay */}
+            {screen === 'dead' && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'rgba(185,28,28,0.93)',
+                backdropFilter: 'blur(12px)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                zIndex: 50,
+              }}>
+                <AlertCircle size={72} style={{ marginBottom: 16, animation: 'pwrBob 0.8s ease-in-out infinite' }}/>
+                <h2 style={{ fontSize: 64, fontWeight: 900, margin: '0 0 8px', textTransform: 'uppercase', letterSpacing: '-0.04em', fontStyle: 'italic' }}>FAILED</h2>
+                <p style={{ color: '#fecaca', fontWeight: 700, fontSize: 20, margin: '0 0 4px' }}>Score: <span style={{ color: 'white', fontWeight: 900 }}>{s?.score ?? 0}</span></p>
+                {(s?.score ?? 0) > 0 && (s?.score ?? 0) >= best && (
+                  <p style={{ color: '#fcd34d', fontWeight: 900, fontSize: 18, margin: '0 0 8px' }}>🏆 NEW BEST!</p>
+                )}
+                <div style={{ display: 'flex', gap: 16, marginTop: 20 }}>
+                  <button
+                    onClick={startGame}
+                    style={{
+                      background: 'white', color: '#dc2626', fontWeight: 900,
+                      padding: '20px 40px', borderRadius: 28, fontSize: 18,
+                      border: 'none', cursor: 'pointer',
+                      boxShadow: '0 7px 0 #cbd5e1', textTransform: 'uppercase',
+                    }}
+                  >
+                    Try Again
+                  </button>
+                  <button
+                    onClick={() => navigate('/')}
+                    style={{
+                      background: 'rgba(0,0,0,0.2)', color: 'white',
+                      border: '2px solid rgba(255,255,255,0.2)', fontWeight: 900,
+                      padding: '20px 32px', borderRadius: 28, fontSize: 18,
+                      cursor: 'pointer', textTransform: 'uppercase',
+                    }}
+                  >
+                    Quit
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {screen === 'playing' && (
-          <p className="mt-3 text-slate-500 text-xs font-bold uppercase tracking-widest">SPACE / CLICK to jump</p>
+          <p style={{ marginTop: 6, color: '#475569', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', flexShrink: 0 }}>
+            SPACE / CLICK / TAP to jump
+          </p>
         )}
       </div>
     </>

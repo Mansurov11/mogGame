@@ -195,7 +195,7 @@ async function handleSubmit(e) {
             </div>
 
             {/* Forgot password */}
-            <div className="flex justify-end -mt-1">
+            {/* <div className="flex justify-end -mt-1">
               <button
                 type="button"
                 className="text-sm hover:underline"
@@ -203,7 +203,7 @@ async function handleSubmit(e) {
               >
                 Forgot password?
               </button>
-            </div>
+            </div> */}
 
             {/* Submit */}
             <button
@@ -260,14 +260,14 @@ async function handleSubmit(e) {
         </div>
 
         {/* Back to games */}
-        <button
+        {/* <button
           onClick={() => navigate("/")}
           className="flex items-center gap-1.5 text-sm hover:opacity-70 transition-opacity"
           style={{ color: isDark ? "#94a3b8" : "#6b7280" }}
         >
           <ArrowLeft className="w-4 h-4" />
           Back to games
-        </button>
+        </button> */}
       </div>
     </div>
   );

@@ -17,6 +17,10 @@ const Home = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isMobile, setIsMobile] = useState(() => {
+    if (typeof window !== "undefined") return window.innerWidth < 768;
+    return false;
+  });
   const [theme, setTheme] = useState(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("theme") || "light";
@@ -28,6 +32,12 @@ const Home = () => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
   const isDark = theme === "dark";
@@ -68,6 +78,7 @@ const Home = () => {
       color: "#ef4444",
       category: "action",
       available: true,
+      desktopOnly: true, // requires keyboard & mouse
     },
     {
       id: "snake",
@@ -110,7 +121,6 @@ const Home = () => {
 
         {/* Header */}
         <header className="mb-8 flex flex-col items-center text-center relative">
-          {/* Top-right controls: theme toggle + profile */}
           <div className="absolute top-0 right-0 flex items-center gap-2">
             <button
               onClick={toggleTheme}
@@ -196,13 +206,17 @@ const Home = () => {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           {filteredGames.map((game) => {
             const Icon = game.icon;
+            // Doom (and any future desktopOnly game) is disabled on screens < 768px
+            const isAvailable = game.available && !(game.desktopOnly && isMobile);
+            const isDesktopOnlyBlocked = game.desktopOnly && isMobile;
+
             return (
               <button
                 key={game.id}
-                onClick={() => game.available && navigate(`/${game.id}`)}
-                disabled={!game.available}
+                onClick={() => isAvailable && navigate(`/${game.id}`)}
+                disabled={!isAvailable}
                 className={`group relative rounded-xl overflow-hidden transition-all ${
-                  game.available
+                  isAvailable
                     ? "hover:shadow-lg hover:-translate-y-1 cursor-pointer"
                     : "opacity-50 cursor-not-allowed"
                 }`}
@@ -236,6 +250,25 @@ const Home = () => {
                   </p>
                 </div>
 
+                {/* "Desktop Only" badge for Doom on mobile */}
+                {isDesktopOnlyBlocked && (
+                  <div
+                    className="absolute inset-0 flex items-center justify-center"
+                    style={{ backgroundColor: isDark ? "rgba(0,0,0,0.4)" : "rgba(0,0,0,0.05)" }}
+                  >
+                    <span
+                      className="px-3 py-1 rounded-full text-sm font-medium shadow"
+                      style={{
+                        backgroundColor: isDark ? "#1a1d27" : "#ffffff",
+                        color: isDark ? "#94a3b8" : "#374151",
+                      }}
+                    >
+                      Desktop Only
+                    </span>
+                  </div>
+                )}
+
+                {/* "Coming Soon" badge for genuinely unavailable games */}
                 {!game.available && (
                   <div
                     className="absolute inset-0 flex items-center justify-center"

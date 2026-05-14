@@ -93,7 +93,8 @@ const Profile = () => {
   const scores = [
     { id: "flappy", title: "Lexical Runner", icon: Zap, color: "#3b82f6", score: bestScores.flappy, unit: "pts" },
     { id: "doom", title: "Doom", icon: Skull, color: "#ef4444", score: bestScores.doom, unit: "pts" },
-    { id: "snake", title: "Word Snake", icon: Snail, color: "#10b9b1", score: bestScores.snake, unit: "pts" },
+    { id: "wordle", title: "Wordle", icon: Grid3x3, color: "#10b981", score: bestScores.wordle_wins, unit: "pts" },
+    { id: "snake", title: "Word Snake", icon: Snail, color: "#10b9b1", score: bestScores.word_snake, unit: "pts" },
     { id: "glyph", title: "Glyph Strike", icon: ALargeSmall, color: "#ef4444", score: bestScores.glyph, unit: "pts" },
   ];
 

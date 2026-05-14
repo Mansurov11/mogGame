@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, RefreshCw } from "lucide-react";
 
@@ -56,6 +56,7 @@ export default function Wordle() {
   const [onlineLanguages, setOnlineLanguages] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const inputRef = useRef(null);
 
   // LOCALSTORAGE'DAN THEME'NI OLISH
   const [themeName, setThemeName] = useState(localStorage.getItem("theme") === "dark" ? "dark" : "light");
@@ -70,6 +71,20 @@ export default function Wordle() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
+
+  // Keep input focused on mobile when game is active
+  useEffect(() => {
+    if (isMobile && !gameOver && difficulty && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [isMobile, gameOver, difficulty, currentGuess]);
+
+  // Refocus input when user taps anywhere on the game area (mobile only)
+  const handleGameAreaClick = () => {
+    if (isMobile && !gameOver && inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
 
   useEffect(() => {
     const fetchWords = async () => {
@@ -129,14 +144,14 @@ export default function Wordle() {
   }
 
   useEffect(() => {
-    if (!difficulty) return;
+    if (!difficulty || isMobile) return; // Skip keyboard listener on mobile
     const handler = (e) => {
       e.preventDefault();
       handleKey(e.key.toUpperCase());
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [currentGuess, gameOver, difficulty]);
+  }, [currentGuess, gameOver, difficulty, isMobile]);
 
   function getLetterStates(guess, target) {
     const states = Array(WORD_LENGTH).fill("absent");
@@ -210,7 +225,10 @@ export default function Wordle() {
       <div style={{ width: "100%", maxWidth: isMobile ? "100%" : 480 }}>
         <button onClick={() => setDifficulty(null)} style={{ display: "flex", alignItems: "center", gap: 8, color: theme.subText, background: "none", border: "none", cursor: "pointer", marginBottom: isMobile ? 12 : 16, fontSize: "16px" }}><ArrowLeft size={18} /> Back</button>
         
-        <div style={{ background: theme.card, borderRadius: isMobile ? 16 : 28, border: `1px solid ${theme.border}`, padding: isMobile ? "24px 16px" : "32px 24px" }}>
+        <div 
+          onClick={handleGameAreaClick}
+          style={{ background: theme.card, borderRadius: isMobile ? 16 : 28, border: `1px solid ${theme.border}`, padding: isMobile ? "24px 16px" : "32px 24px", cursor: isMobile && !gameOver ? "text" : "default" }}
+        >
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: isMobile ? 24 : 32 }}>
             <h1 style={{ fontSize: isMobile ? 20 : 24, fontWeight: 900, color: theme.text, margin: 0 }}>{langData.flag} Wordle</h1>
             <span style={{ fontSize: isMobile ? 10 : 12, fontWeight: 800, color: "#fff", background: "#2563eb", padding: isMobile ? "3px 10px" : "4px 12px", borderRadius: 12, textTransform: "uppercase" }}>{difficulty}</span>
@@ -219,6 +237,7 @@ export default function Wordle() {
           {/* Hidden input for mobile keyboard */}
           {isMobile && !gameOver && (
             <input
+              ref={inputRef}
               type="text"
               value={currentGuess}
               onChange={(e) => {
@@ -226,17 +245,32 @@ export default function Wordle() {
                 if (/^[A-ZА-ЯЁ']*$/.test(val)) setCurrentGuess(val);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Enter") handleKey("ENTER");
-                else if (e.key === "Backspace") e.preventDefault();
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  handleKey("ENTER");
+                }
+                // Let onChange handle backspace naturally
+              }}
+              onBlur={() => {
+                // Refocus after a short delay to prevent keyboard from closing
+                setTimeout(() => {
+                  if (inputRef.current && !gameOver) {
+                    inputRef.current.focus();
+                  }
+                }, 100);
               }}
               autoFocus
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="characters"
+              spellCheck="false"
               maxLength={WORD_LENGTH}
               style={{
                 position: "absolute",
-                opacity: 0,
-                pointerEvents: "none",
+                left: "-9999px",
                 width: 1,
-                height: 1
+                height: 1,
+                opacity: 0
               }}
             />
           )}
@@ -265,7 +299,7 @@ export default function Wordle() {
           {isMobile && !gameOver && (
             <div style={{ textAlign: "center", marginBottom: 20, padding: "12px", background: theme.bg, borderRadius: 12 }}>
               <p style={{ color: theme.subText, fontSize: 14, margin: 0 }}>
-                Type on your keyboard • Press Enter to submit
+                👆 Tap here to open keyboard • Type your guess
               </p>
             </div>
           )}
