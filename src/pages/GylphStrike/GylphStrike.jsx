@@ -1,5 +1,33 @@
 import  { useState, useEffect, useCallback } from "react";
-import { ArrowLeft, Link } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
+
+import { ref, get, update } from "firebase/database";
+import { auth, db } from "../../firebase";
+
+// ── SAVE GLYPH STRIKER STATS ────────────────────────────────────────────────
+const saveGlyphStrikerStats = async (wordsGuessed) => {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const scoreRef = ref(db, `Users/${user.uid}/bestScores/glyph`);
+
+  try {
+    const snapshot = await get(scoreRef);
+    const current = snapshot.val() || {};
+
+    const updates = {
+      total_wins: (current.total_wins || 0) + 1
+    };
+
+    if (!current.best || wordsGuessed < current.best) {
+      updates.best = wordsGuessed;
+    }
+
+    await update(scoreRef, updates);
+  } catch (err) {
+    console.error("Failed to save GlyphStriker stats:", err);
+  }
+};
 
 // ── EXPANDED LEXICON ────────────────────────────────────────────────────────
 const DATABASE = {
@@ -85,7 +113,10 @@ export default function GlyphStriker() {
       const nextInput = input + glyph.char;
       setInput(nextInput);
       setGlyphs(prev => prev.filter(g => g.id !== glyph.id));
+
       if (nextInput === targetWord) {
+        saveGlyphStrikerStats(level + 1);
+
         if (level < DATABASE[diff].length - 1) setStatus("LEVEL_UP");
         else setStatus("VICTORY");
       }
@@ -104,7 +135,7 @@ export default function GlyphStriker() {
     }}>
       
       <div style={s.navArea}>
-             <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: 15 }}>
+        <button onClick={() => navigate("/")} style={{ display: "flex", alignItems: "center", gap: 8, color: "#64748b", background: "none", border: "none", cursor: "pointer", marginBottom: 24, fontSize: 15 }}>
           <ArrowLeft size={18} /> Back to Games
         </button>
       </div>
@@ -188,7 +219,7 @@ const s = {
     fontFamily: "'Inter', sans-serif", 
     overflow: "hidden", 
     transition: "background-color 0.1s ease",
-    userSelect: "none", // Fix: Prevents text selection on double click
+    userSelect: "none",
     WebkitUserSelect: "none"
   },
   navArea: { position: "absolute", top: 25, left: 25, zIndex: 100 },
@@ -224,7 +255,7 @@ const s = {
     display: "flex", 
     justifyContent: "center", 
     gap: "15px",
-    pointerEvents: "none" // Fix: Glyphs can be clicked even if they are behind slots
+    pointerEvents: "none"
   },
   slot: { 
     width: "45px", 
