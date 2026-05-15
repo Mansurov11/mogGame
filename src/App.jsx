@@ -10,8 +10,10 @@ import GeoDash from "./pages/GeoEnglish/GeoEnglish";
 import Login from "./pages/Login/Login";
 import Register from "./pages/Registration/Registration";
 import GlyphStriker from "./pages/GylphStrike/GylphStrike";
-import { ToastContainer } from "react-toastify";
 import Profile from "./pages/Profile/Profile";
+
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const router = createBrowserRouter([
   {
@@ -39,13 +41,25 @@ const router = createBrowserRouter([
   },
 ]);
 
-
-
 const App = () => {
-  return <>
-   <RouterProvider router={router} />
-    <ToastContainer />
-  </>;
+  // Detect theme from <html data-theme="dark"> or localStorage
+  const theme = document.documentElement.getAttribute("data-theme") || "light";
+
+  return (
+    <>
+      <RouterProvider router={router} />
+
+      <ToastContainer
+        position="top-center"
+        theme={theme === "dark" ? "dark" : "light"}
+        toastStyle={{
+          background: theme === "dark" ? "#0f0f0f" : "#ffffff",
+          color: theme === "dark" ? "#f1f1f1" : "#111",
+          border: theme === "dark" ? "1px solid #333" : "1px solid #ddd",
+        }}
+      />
+    </>
+  );
 };
 
 export default App;
