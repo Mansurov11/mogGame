@@ -43,19 +43,17 @@ const router = createBrowserRouter([
 
 const App = () => {
   // Detect theme from <html data-theme="dark"> or localStorage
-  const theme = document.documentElement.getAttribute("data-theme") || "light";
+  const theme = localStorage.getItem("theme")
 
   return (
     <>
       <RouterProvider router={router} />
 
       <ToastContainer
-        position="top-center"
-        theme={theme === "dark" ? "dark" : "light"}
+        theme={theme == "dark" ? "dark" : "light"}
         toastStyle={{
-          background: theme === "dark" ? "#0f0f0f" : "#ffffff",
-          color: theme === "dark" ? "#f1f1f1" : "#111",
-          border: theme === "dark" ? "1px solid #333" : "1px solid #ddd",
+          background: theme == "dark" ? "#1a1d27" : "#ffffff",
+          color: theme == "dark" ? "#ffffff" : "#000",
         }}
       />
     </>

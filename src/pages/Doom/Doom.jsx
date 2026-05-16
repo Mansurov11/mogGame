@@ -1,6 +1,8 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Monitor } from "lucide-react";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { Link } from "react-router-dom";
+import { auth, db } from "../../firebase";
+import { ref, update, get } from "firebase/database";
 
 // ─── Main component ───────────────────────────────────────────────────────────
 function DoomGame() {
@@ -427,6 +429,25 @@ function DoomGame() {
   const [roundIdx, setRoundIdx] = useState(0);
   const [totalScore, setTotalScore] = useState(0);
   const [winWord, setWinWord] = useState("");
+  const [bestScore, setBestScore] = useState(() => +(localStorage.getItem("doom_best") || 0));
+
+  // ─── Firebase best-score saver ────────────────────────────────────────────────
+  const saveToFirebase = useCallback(async (finalScore) => {
+    if (finalScore > +(localStorage.getItem("doom_best") || 0)) {
+      localStorage.setItem("doom_best", finalScore);
+      setBestScore(finalScore);
+    }
+    const user = auth.currentUser;
+    if (!user) return;
+    try {
+      const scoreRef = ref(db, `Users/${user.uid}/bestScores`);
+      const snapshot = await get(scoreRef);
+      const prev = (snapshot.val() || {}).doom || 0;
+      if (finalScore > prev) await update(scoreRef, { doom: finalScore });
+    } catch (err) {
+      console.error("Firebase save error:", err);
+    }
+  }, []);
 
   const gcRef = useRef(null);
   const mcRef = useRef(null);
@@ -682,6 +703,7 @@ function DoomGame() {
 
     if (s.health <= 0) {
       render(); drawMinimap(); updateHUD();
+      saveToFirebase(s.score);
       setPhase("dead"); return;
     }
 
@@ -759,6 +781,7 @@ function DoomGame() {
     if (s.collectedWord === s.targetWord && !s.wordComplete) {
       s.wordComplete = true; s.score += 500;
       setWinWord(s.targetWord); setTotalScore(s.score);
+      saveToFirebase(s.score);
       setTimeout(() => { if (rafRef.current) cancelAnimationFrame(rafRef.current); setPhase("win"); }, 1200);
     }
 
@@ -803,6 +826,90 @@ function DoomGame() {
   };
 
   const currentWord = WORD_LIST[roundIdx % WORD_LIST.length];
+
+  // ─── Mobile block ─────────────────────────────────────────────────────────────
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || window.innerWidth < 768;
+
+  if (isMobile) {
+    return (
+      <div style={{
+        minHeight: "100dvh", background: "#0a0000",
+        display: "flex", flexDirection: "column",
+        alignItems: "center", justifyContent: "center",
+        padding: 24, fontFamily: "'Courier New', monospace",
+        textAlign: "center",
+      }}>
+        <Link to="/" style={{
+          position: "absolute", top: 16, left: 16,
+          display: "inline-flex", alignItems: "center", gap: 6,
+          color: "#880000", textDecoration: "none",
+          fontSize: 13, fontWeight: 700, letterSpacing: 3,
+        }}>
+          <ArrowLeft size={16} /> BACK
+        </Link>
+
+        {/* Skull icon */}
+        <div style={{ fontSize: 72, marginBottom: 16, lineHeight: 1 }}>💀</div>
+
+        <h1 style={{
+          fontSize: 42, fontWeight: 900, color: "#ff2200",
+          letterSpacing: 6, fontFamily: "Impact, sans-serif",
+          textShadow: "0 0 40px #f00, 0 4px 0 #550000",
+          margin: "0 0 8px",
+        }}>DOOM</h1>
+
+        <div style={{ color: "#880000", fontSize: 10, letterSpacing: 6, marginBottom: 28 }}>
+          ☠ WORD HUNT ☠
+        </div>
+
+        <div style={{
+          border: "2px solid #550000",
+          borderRadius: 4,
+          padding: "24px 28px",
+          background: "rgba(80,0,0,0.25)",
+          maxWidth: 320,
+          marginBottom: 28,
+        }}>
+          <Monitor size={36} color="#880000" style={{ marginBottom: 12 }} />
+          <p style={{
+            color: "#ff6666", fontSize: 14, fontWeight: 700,
+            letterSpacing: 2, lineHeight: 1.7, margin: 0,
+          }}>
+            THIS GAME REQUIRES<br />
+            <span style={{ color: "#ff2200", fontSize: 17 }}>A DESKTOP DEVICE</span>
+          </p>
+          <p style={{
+            color: "#550000", fontSize: 11, letterSpacing: 2,
+            lineHeight: 1.8, margin: "14px 0 0",
+          }}>
+            WASD + mouse controls are<br />not supported on mobile.<br />
+            Open on a PC or laptop to play.
+          </p>
+        </div>
+
+        {/* Scanline decoration */}
+        <div style={{
+          width: "100%", maxWidth: 320, height: 1,
+          background: "linear-gradient(90deg, transparent, #880000, transparent)",
+          marginBottom: 20,
+        }} />
+
+        <Link to="/" style={{
+          display: "inline-block",
+          border: "2px solid #cc0000", color: "#ff2200",
+          padding: "12px 36px", fontSize: 13,
+          fontFamily: "'Courier New', monospace",
+          letterSpacing: 4, fontWeight: 700,
+          textDecoration: "none",
+        }}>
+          ← BACK TO GAMES
+        </Link>
+
+        <style>{`@keyframes pulse{from{opacity:.5}to{opacity:1}}`}</style>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", width: "100%", height: "100%", background: "#000", fontFamily: "'Courier New',monospace" }}>
@@ -875,7 +982,11 @@ function DoomGame() {
               <div style={{ fontSize: 64, marginBottom: 6 }}>💀</div>
               <h2 style={{ fontSize: 52, color: "#fff", fontWeight: 900, letterSpacing: 4, fontFamily: "Impact,sans-serif", textShadow: "0 0 40px #f00,0 4px 0 #880000", margin: 0 }}>YOU DIED</h2>
               <p style={{ color: "#ffaaaa", margin: "10px 0 6px", fontSize: 13, letterSpacing: 2 }}>Score: {stateRef.current?.score ?? 0} | Kills: {stateRef.current?.kills ?? 0}/20</p>
-              <p style={{ color: "#ff6666", margin: "0 0 24px", fontSize: 12, letterSpacing: 2 }}>Word: {stateRef.current?.collectedWord || "—"} / {stateRef.current?.targetWord}</p>
+              <p style={{ color: "#ff6666", margin: "0 0 4px", fontSize: 12, letterSpacing: 2 }}>Word: {stateRef.current?.collectedWord || "—"} / {stateRef.current?.targetWord}</p>
+              {(stateRef.current?.score ?? 0) >= bestScore && (stateRef.current?.score ?? 0) > 0
+                ? <p style={{ color: "#ffd700", margin: "0 0 20px", fontSize: 13, fontWeight: 900, letterSpacing: 2, textShadow: "0 0 12px #ffd700" }}>🏆 NEW BEST: {stateRef.current?.score}!</p>
+                : <p style={{ color: "#555", margin: "0 0 20px", fontSize: 11, letterSpacing: 2 }}>Best: {bestScore}</p>
+              }
               <div style={{ display: "flex", gap: 16 }}>
                 <button onClick={() => handleStart(roundIdx, 0)}
                   style={{ background: "transparent", border: "2px solid #ff4444", color: "#ff6666", padding: "12px 28px", fontSize: 13, cursor: "pointer", letterSpacing: 3, fontFamily: "'Courier New',monospace", fontWeight: 700 }}
@@ -902,6 +1013,9 @@ function DoomGame() {
                 ))}
               </div>
               <p style={{ color: "#aaffaa", margin: "4px 0 6px", fontSize: 13, letterSpacing: 2 }}>+500 BONUS · Score: {totalScore}</p>
+              {totalScore >= bestScore && totalScore > 0 && (
+                <p style={{ color: "#ffd700", margin: "0 0 4px", fontSize: 13, fontWeight: 900, letterSpacing: 2, textShadow: "0 0 12px #ffd700" }}>🏆 NEW BEST: {totalScore}!</p>
+              )}
               <p style={{ color: "#66aa66", margin: "0 0 24px", fontSize: 11, letterSpacing: 3 }}>ROUND {roundIdx + 1} / {WORD_LIST.length} COMPLETE</p>
               {roundIdx + 1 < WORD_LIST.length && (
                 <div style={{ textAlign: "center", marginBottom: 20 }}>
@@ -951,6 +1065,7 @@ function DoomGame() {
             </div>
           </div>
           <HudStat label="SCORE" valId="h-score" color="#00ff66" glow="#00ff44" init="0" />
+          <HudStat label="BEST" color="#ffd700" glow="#ffaa00" staticVal={bestScore} />
           <HudStat label="KILLS" valId="h-kills" color="#ff6600" glow="#ff4400" init="0/20" />
         </div>
 
@@ -960,11 +1075,14 @@ function DoomGame() {
   );
 }
 
-function HudStat({ label, valId, color, glow, init }) {
+function HudStat({ label, valId, color, glow, init, staticVal }) {
   return (
     <div style={{ textAlign: "center", minWidth: 62 }}>
       <div style={{ fontSize: 8, color: "#660000", letterSpacing: 3, textTransform: "uppercase" }}>{label}</div>
-      <div id={valId} style={{ fontSize: 24, fontWeight: 900, color, textShadow: `0 0 12px ${glow}`, fontFamily: "'Courier New',monospace" }}>{init}</div>
+      {staticVal !== undefined
+        ? <div style={{ fontSize: 24, fontWeight: 900, color, textShadow: `0 0 12px ${glow}`, fontFamily: "'Courier New',monospace" }}>{staticVal}</div>
+        : <div id={valId} style={{ fontSize: 24, fontWeight: 900, color, textShadow: `0 0 12px ${glow}`, fontFamily: "'Courier New',monospace" }}>{init}</div>
+      }
     </div>
   );
 }

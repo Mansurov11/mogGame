@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { User, Mail, Sun, Moon, ArrowLeft, Trophy, Zap, Grid3x3, Type, Skull, Snail, ALargeSmall, Loader2 } from "lucide-react";
+import { User, Mail, Sun, Moon, ArrowLeft, Trophy, Zap, Grid3x3, Type, Skull, Snail, ALargeSmall, Loader2, SquareArrowRightExit } from "lucide-react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { auth, db } from "../../firebase"; 
 import { onAuthStateChanged } from "firebase/auth";
@@ -113,6 +113,12 @@ const Profile = () => {
         <div style={{ marginBottom: 32, display: "flex", flexDirection: "column", alignItems: "center", textAlign: "center", position: "relative" }}>
           <button onClick={toggleTheme} style={{ position: "absolute", top: 0, right: 0, padding: 8, borderRadius: 8, border: `1px solid ${border}`, backgroundColor: cardBg, color: textSecondary, cursor: "pointer" }}>
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+          <button onClick={() => {
+            localStorage.removeItem("authToken")
+            navigate("/login")
+          }} style={{ position: "absolute", top: 0, right: 50, padding: 8, borderRadius: 8, border: `1px solid ${border}`, backgroundColor: cardBg, color: textSecondary, cursor: "pointer" }}>
+            <SquareArrowRightExit size={20} />
           </button>
           <h1 style={{ fontSize: 30, fontWeight: 900, color: textPrimary, margin: 0 }}>Profil</h1>
           <p style={{ color: textSecondary, marginTop: 4 }}>Shaxsiy ma'lumotlar va yutuqlar</p>

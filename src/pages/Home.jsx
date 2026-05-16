@@ -124,7 +124,7 @@ const Home = () => {
           <div className="absolute top-0 right-0 flex items-center gap-2">
             <button
               onClick={toggleTheme}
-              className="p-2 rounded-lg border transition-colors"
+              className="p-2 z-10 rounded-lg border transition-colors"
               style={{
                 backgroundColor: isDark ? "#1a1d27" : "#ffffff",
                 borderColor: isDark ? "#2d3148" : "#e5e7eb",
@@ -137,7 +137,7 @@ const Home = () => {
 
             <button
               onClick={() => navigate("/profile")}
-              className="p-2 rounded-lg border transition-colors hover:opacity-80"
+              className="p-2 z-10 rounded-lg border transition-colors hover:opacity-80"
               style={{
                 backgroundColor: isDark ? "#1a1d27" : "#ffffff",
                 borderColor: isDark ? "#2d3148" : "#e5e7eb",
