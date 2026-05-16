@@ -5,23 +5,25 @@ import { auth, db } from "../../firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import { ref, onValue } from "firebase/database";
 
+// Detect mobile once at module level (doesn't change during session)
+const IS_MOBILE = window.innerWidth < 768;
+
 const Profile = () => {
   
   const navigate = useNavigate();
   const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "light");
   
-  // Ma'lumotlar uchun state
   const [userData, setUserData] = useState(null);
   const [bestScores, setBestScores] = useState({
-    flappy: 0, doom: 0, snake: 0, glyph: 0
+    flappy: 0, doom: 0, snake: 0, glyph: 0, wordle_wins: 0, word_snake: 0,
   });
-  // Sahifa yuklanish holati
   const [pageLoading, setPageLoading] = useState(true);
   
   const authToken = localStorage.getItem("authToken");
-    if (!authToken) {
+  if (!authToken) {
     return <Navigate to="/login" replace />;
   }
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
@@ -30,8 +32,6 @@ const Profile = () => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       if (currentUser) {
-        // Realtime Database-dan foydalanuvchi ma'lumotlarini olish
-        // DIQQAT: Bazadagi papka nomi 'Users' ekanligini tekshiring
         const userRef = ref(db, 'Users/' + currentUser.uid);
         
         onValue(userRef, (snapshot) => {
@@ -46,14 +46,12 @@ const Profile = () => {
               setBestScores(prev => ({ ...prev, ...data.bestScores }));
             }
           } else {
-            // Agar bazada ma'lumot bo'lmasa, Auth'dan olingan emailni ko'rsatamiz
             setUserData({
               userName: "Noma'lum",
               email: currentUser.email,
               role: "Player",
             });
           }
-          // Ma'lumot tekshirib bo'lingach yuklashni to'xtatamiz
           setPageLoading(false);
         }, (error) => {
           console.error("Firebase xatosi:", error);
@@ -90,12 +88,55 @@ const Profile = () => {
     );
   }
 
-  const scores = [
-    { id: "flappy", title: "Lexical Runner", icon: Zap, color: "#3b82f6", score: bestScores.flappy, unit: "pts" },
-    { id: "doom", title: "Doom", icon: Skull, color: "#ef4444", score: bestScores.doom, unit: "pts" },
-    { id: "wordle", title: "Wordle", icon: Grid3x3, color: "#10b981", score: bestScores.wordle_wins, unit: "guessed" },
-    { id: "snake", title: "Word Snake", icon: Snail, color: "#10b9b1", score: bestScores.word_snake, unit: "pts" },
-    { id: "glyph", title: "Glyph Strike", icon: ALargeSmall, color: "#ef4444", score: bestScores.glyph.total_wins, unit: "guessed" },
+  // Safe score helpers — always fall back to 0 if the Firebase value is missing,
+  // null, undefined, or not yet the expected type (e.g. glyph might be 0 not {})
+  const safeNum = (val) => (typeof val === "number" && !isNaN(val) ? val : 0);
+
+  const allScores = [
+    {
+      id: "flappy",
+      title: "Lexical Runner",
+      icon: Zap,
+      color: "#3b82f6",
+      score: safeNum(bestScores.flappy),
+      unit: "pts",
+    },
+    // Doom is desktop-only — hidden on mobile
+    ...(!IS_MOBILE ? [{
+      id: "doom",
+      title: "Doom",
+      icon: Skull,
+      color: "#ef4444",
+      score: safeNum(bestScores.doom),
+      unit: "pts",
+    }] : []),
+    {
+      id: "wordle",
+      title: "Wordle",
+      icon: Grid3x3,
+      color: "#10b981",
+      score: safeNum(bestScores.wordle_wins),
+      unit: "guessed",
+    },
+    {
+      id: "snake",
+      title: "Word Snake",
+      icon: Snail,
+      color: "#10b9b1",
+      score: safeNum(bestScores.word_snake),
+      unit: "pts",
+    },
+    {
+      id: "glyph",
+      title: "Glyph Strike",
+      icon: ALargeSmall,
+      color: "#ef4444",
+      // glyph may be stored as 0 (number) or as an object {total_wins: N}
+      score: typeof bestScores.glyph === "object" && bestScores.glyph !== null
+        ? safeNum(bestScores.glyph.total_wins)
+        : 0,
+      unit: "guessed",
+    },
   ];
 
   const cardBg = isDark ? "#1a1d27" : "#ffffff";
@@ -115,8 +156,8 @@ const Profile = () => {
             {isDark ? <Sun size={20} /> : <Moon size={20} />}
           </button>
           <button onClick={() => {
-            localStorage.removeItem("authToken")
-            navigate("/login")
+            localStorage.removeItem("authToken");
+            navigate("/login");
           }} style={{ position: "absolute", top: 0, right: 50, padding: 8, borderRadius: 8, border: `1px solid ${border}`, backgroundColor: cardBg, color: textSecondary, cursor: "pointer" }}>
             <SquareArrowRightExit size={20} />
           </button>
@@ -129,7 +170,8 @@ const Profile = () => {
             width: 80, height: 80, borderRadius: 12, 
             backgroundColor: "#dc262620", color: "#dc2626", 
             display: "flex", alignItems: "center", justifyContent: "center", 
-            fontSize: 32, fontWeight: 900 
+            fontSize: 32, fontWeight: 900,
+            flexShrink: 0,
           }}>
             {userData?.userName?.charAt(0).toUpperCase() || "?"}
           </div>
@@ -140,6 +182,7 @@ const Profile = () => {
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 24 }}>
+          {/* Personal info card */}
           <div style={{ backgroundColor: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 40 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
               <div style={{ padding: 8, borderRadius: 8, backgroundColor: "#dc262615", color: "#dc2626", display: "flex" }}>
@@ -151,6 +194,7 @@ const Profile = () => {
             <InfoRow label="Email" value={userData?.email} icon={<Mail size={16} />} textPrimary={textPrimary} textSecondary={textSecondary} border={border} />
           </div>
 
+          {/* Best scores card */}
           <div style={{ backgroundColor: cardBg, border: `1px solid ${border}`, borderRadius: 12, padding: 40 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
               <div style={{ padding: 8, borderRadius: 8, backgroundColor: "#dc262615", color: "#dc2626", display: "flex" }}>
@@ -159,17 +203,31 @@ const Profile = () => {
               <h3 style={{ fontSize: 18, fontWeight: 900, color: textPrimary, margin: 0 }}>Best Scores</h3>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-              {scores.map((game) => {
+              {allScores.map((game) => {
                 const Icon = game.icon;
                 return (
-                  <div key={game.id} style={{ backgroundColor: isDark ? "#0f1117" : "#f8f9fa", border: `1px solid ${border}`, borderRadius: 12, padding: 16, display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, backgroundColor: game.color + (isDark ? "25" : "15"), display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <div key={game.id} style={{
+                    backgroundColor: isDark ? "#0f1117" : "#f8f9fa",
+                    border: `1px solid ${border}`,
+                    borderRadius: 12,
+                    padding: 16,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 12,
+                  }}>
+                    <div style={{
+                      width: 36, height: 36, borderRadius: 8,
+                      backgroundColor: game.color + (isDark ? "25" : "15"),
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      flexShrink: 0,
+                    }}>
                       <Icon size={16} style={{ color: game.color }} />
                     </div>
                     <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 11, fontWeight: 600, color: textSecondary, margin: 0 }}>{game.title}</p>
                       <p style={{ fontSize: 14, fontWeight: 900, color: textPrimary, margin: 0 }}>
-                        {game.score} <span style={{ fontSize: 11, fontWeight: 500, color: textSecondary }}>{game.unit}</span>
+                        {game.score}{" "}
+                        <span style={{ fontSize: 11, fontWeight: 500, color: textSecondary }}>{game.unit}</span>
                       </p>
                     </div>
                   </div>
@@ -178,6 +236,7 @@ const Profile = () => {
             </div>
           </div>
         </div>
+
       </div>
     </div>
   );
